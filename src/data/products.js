@@ -1,4 +1,4 @@
-const a = (name) => `/assets/revo/${name}`
+const a = (name) => `${import.meta.env.BASE_URL}assets/revo/${name}`
 
 export const products = [
   { id:'morning', image:a('raw-03.png'), gallery:[a('raw-03.png'),a('raw-10.png')], price:5.99, oldPrice:7.49, rating:4.9, stock:24, roast:'medium', title:{ru:'REVO Утренний кофе',en:'REVO Morning'}, note:{ru:'Сбалансированный кофе с нотами карамели и цитруса.',en:'Balanced coffee with caramel and citrus notes.'} },
