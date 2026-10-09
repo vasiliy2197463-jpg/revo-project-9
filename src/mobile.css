@@ -1,5 +1,42 @@
 .mobile-nav { display: none; }
 
+/* Real, touch-friendly rails and product galleries. */
+.rail {
+  transform: none;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.rail::-webkit-scrollbar, .thumbs::-webkit-scrollbar { display: none; }
+.rail > .product-card { flex: 0 0 calc(33.333% - 16px); scroll-snap-align: start; }
+.main-image { position: relative; overflow: hidden; touch-action: pan-y; }
+.gallery-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fffffff0;
+  color: var(--navy);
+  box-shadow: 0 6px 22px #26384e24;
+  transform: translateY(-50%);
+}
+.gallery-arrow.previous { left: 16px; }
+.gallery-arrow.next { right: 16px; }
+.gallery-dots { display: flex; justify-content: center; gap: 8px; margin-top: 14px; }
+.gallery-dots button { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: #cbd1d8; }
+.gallery-dots button.active { width: 24px; border-radius: 10px; background: var(--gold); }
+.thumbs { overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.thumbs button { flex: 0 0 auto; scroll-snap-align: start; }
+
 @media (max-width: 560px) {
   body { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
   .header { height: 68px; padding: 0 18px; }
@@ -27,6 +64,11 @@
   .features, .rail-section, .page, .product-page, .admin { padding: 46px 18px; }
   .section-title { margin-bottom: 28px; }
   .section-title h2 { font-size: 28px; }
+  .rail-section .section-title { margin-bottom: 18px; }
+  .rail-controls { position: static; display: flex; justify-content: center; margin: 0 0 18px; }
+  .rail-controls button { width: 42px; height: 42px; }
+  .rail { margin-right: -18px; padding-right: 18px; gap: 14px; }
+  .rail > .product-card { flex-basis: min(82vw, 300px); min-width: min(82vw, 300px); }
 
   .catalog-grid { gap: 14px; }
   .catalog-grid .product-card { display: grid; grid-template-columns: 116px minmax(0, 1fr); min-height: 190px; }
@@ -45,6 +87,11 @@
   .product-page .back { margin-bottom: 20px; }
   .main-image { height: 290px; }
   .main-image img { padding: 22px; }
+  .gallery-arrow { width: 42px; height: 42px; }
+  .gallery-arrow.previous { left: 10px; }
+  .gallery-arrow.next { right: 10px; }
+  .gallery-dots { margin-top: 12px; }
+  .thumbs { padding-bottom: 4px; }
   .thumbs button { width: 68px; height: 68px; }
   .product-info { padding: 24px 0 10px; }
   .product-info h1 { margin: 14px 0; font-size: 31px; }
