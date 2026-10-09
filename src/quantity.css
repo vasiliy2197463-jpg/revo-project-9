@@ -1,0 +1,29 @@
+.add-stepper {
+  height: 42px;
+  min-width: 126px;
+  display: grid;
+  grid-template-columns: 42px 1fr 42px;
+  align-items: center;
+  background: var(--navy);
+  color: #fff;
+}
+
+.add-stepper.large {
+  height: 50px;
+  min-width: 180px;
+  grid-template-columns: 50px 1fr 50px;
+}
+
+.add-stepper button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 23px;
+}
+
+.add-stepper button:hover { background: #ffffff1a; }
+.add-stepper svg { width: 17px; }
+.add-stepper strong { text-align: center; }
