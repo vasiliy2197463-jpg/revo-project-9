@@ -1,62 +1,1404 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
-import ReactDOM from 'react-dom/client'
-import { HashRouter, Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Check, Coffee, Gift, Heart, Leaf, Menu, Minus, Package, Search, ShoppingBag, Star, Trash2, User, X } from 'lucide-react'
-import { products } from './data/products'
-import './styles.css'
-import './quantity.css'
-import './mobile.css'
-import './admin.css'
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import ReactDOM from "react-dom/client";
+import {
+  HashRouter,
+  Link,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Coffee,
+  Gift,
+  Heart,
+  Leaf,
+  Menu,
+  Minus,
+  Package,
+  Search,
+  ShoppingBag,
+  Star,
+  Trash2,
+  User,
+  X,
+} from "lucide-react";
+import { products } from "./data/products";
+import "./styles.css";
+import "./quantity.css";
+import "./mobile.css";
+import "./admin.css";
 
-const asset = (name) => `${import.meta.env.BASE_URL}assets/revo/${name}`
+const asset = (name) => `${import.meta.env.BASE_URL}assets/revo/${name}`;
 
 const copy = {
- ru:{catalog:'Каталог',gift:'Подарочные наборы',combo:'Комбо',about:'О кофе',support:'Поддержка',search:'Найти кофе',heroTop:'ВАШ ПЕРСОНАЛЬНЫЙ',heroBig:'КОФЕ',heroText:'Выберите кофе, созданный под ваш вкус и способ заваривания.',shop:'Выбрать кофе',features:'Ваш кофе — ваши правила',best:'Любимый кофе',bestSub:'Подборка, с которой легко начать',more:'Подробнее',cart:'Корзина',fav:'Избранное',account:'Аккаунт',add:'В корзину',buy:'Купить сейчас',empty:'Здесь пока пусто',total:'Итого',checkout:'Оформить заказ',back:'Назад',reviews:'Отзывы',write:'Оставить отзыв',send:'Отправить',giftTitle:'Кофе в подарок',giftSub:'Подарочный набор, который запомнится',comboTitle:'Комбо-наборы',comboSub:'Больше вкуса в одной покупке',login:'Войти',register:'Регистрация',email:'Электронная почта',password:'Пароль',name:'Имя',logout:'Выйти',orders:'Мои заказы',admin:'Админ-панель',orderDone:'Заказ оформлен',orderText:'Спасибо! Мы уже начали собирать ваш кофе.',all:'Все',stock:'Остаток',save:'Сохранить',status:'Статус',customers:'Клиенты',messages:'Обращения',products:'Товары',lang:'EN'},
- en:{catalog:'Catalog',gift:'Gift sets',combo:'Combos',about:'Our coffee',support:'Support',search:'Find coffee',heroTop:'YOUR PERSONALIZED',heroBig:'COFFEE',heroText:'Choose coffee crafted for your taste and brewing method.',shop:'Choose coffee',features:'Your coffee, your rules',best:'Favorite coffee',bestSub:'An easy collection to start with',more:'Details',cart:'Cart',fav:'Favorites',account:'Account',add:'Add to cart',buy:'Buy now',empty:'Nothing here yet',total:'Total',checkout:'Checkout',back:'Back',reviews:'Reviews',write:'Write a review',send:'Send',giftTitle:'Coffee as a gift',giftSub:'A memorable gift set',comboTitle:'Coffee combos',comboSub:'More flavor in one purchase',login:'Sign in',register:'Create account',email:'Email',password:'Password',name:'Name',logout:'Sign out',orders:'My orders',admin:'Admin panel',orderDone:'Order placed',orderText:'Thank you! We are already packing your coffee.',all:'All',stock:'Stock',save:'Save',status:'Status',customers:'Customers',messages:'Messages',products:'Products',lang:'RU'}
+  ru: {
+    catalog: "Каталог",
+    gift: "Подарочные наборы",
+    combo: "Комбо",
+    about: "О кофе",
+    support: "Поддержка",
+    search: "Найти кофе",
+    heroTop: "ВАШ ПЕРСОНАЛЬНЫЙ",
+    heroBig: "КОФЕ",
+    heroText: "Выберите кофе, созданный под ваш вкус и способ заваривания.",
+    shop: "Выбрать кофе",
+    features: "Ваш кофе — ваши правила",
+    best: "Любимый кофе",
+    bestSub: "Подборка, с которой легко начать",
+    more: "Подробнее",
+    cart: "Корзина",
+    fav: "Избранное",
+    account: "Аккаунт",
+    add: "В корзину",
+    buy: "Купить сейчас",
+    empty: "Здесь пока пусто",
+    total: "Итого",
+    checkout: "Оформить заказ",
+    back: "Назад",
+    reviews: "Отзывы",
+    write: "Оставить отзыв",
+    send: "Отправить",
+    giftTitle: "Кофе в подарок",
+    giftSub: "Подарочный набор, который запомнится",
+    comboTitle: "Комбо-наборы",
+    comboSub: "Больше вкуса в одной покупке",
+    login: "Войти",
+    register: "Регистрация",
+    email: "Электронная почта",
+    password: "Пароль",
+    name: "Имя",
+    logout: "Выйти",
+    orders: "Мои заказы",
+    admin: "Админ-панель",
+    orderDone: "Заказ оформлен",
+    orderText: "Спасибо! Мы уже начали собирать ваш кофе.",
+    all: "Все",
+    stock: "Остаток",
+    save: "Сохранить",
+    status: "Статус",
+    customers: "Клиенты",
+    messages: "Обращения",
+    products: "Товары",
+    lang: "EN",
+  },
+  en: {
+    catalog: "Catalog",
+    gift: "Gift sets",
+    combo: "Combos",
+    about: "Our coffee",
+    support: "Support",
+    search: "Find coffee",
+    heroTop: "YOUR PERSONALIZED",
+    heroBig: "COFFEE",
+    heroText: "Choose coffee crafted for your taste and brewing method.",
+    shop: "Choose coffee",
+    features: "Your coffee, your rules",
+    best: "Favorite coffee",
+    bestSub: "An easy collection to start with",
+    more: "Details",
+    cart: "Cart",
+    fav: "Favorites",
+    account: "Account",
+    add: "Add to cart",
+    buy: "Buy now",
+    empty: "Nothing here yet",
+    total: "Total",
+    checkout: "Checkout",
+    back: "Back",
+    reviews: "Reviews",
+    write: "Write a review",
+    send: "Send",
+    giftTitle: "Coffee as a gift",
+    giftSub: "A memorable gift set",
+    comboTitle: "Coffee combos",
+    comboSub: "More flavor in one purchase",
+    login: "Sign in",
+    register: "Create account",
+    email: "Email",
+    password: "Password",
+    name: "Name",
+    logout: "Sign out",
+    orders: "My orders",
+    admin: "Admin panel",
+    orderDone: "Order placed",
+    orderText: "Thank you! We are already packing your coffee.",
+    all: "All",
+    stock: "Stock",
+    save: "Save",
+    status: "Status",
+    customers: "Customers",
+    messages: "Messages",
+    products: "Products",
+    lang: "RU",
+  },
+};
+
+const Store = createContext(null);
+const read = (k, d) => {
+  try {
+    return JSON.parse(localStorage.getItem(k)) ?? d;
+  } catch {
+    return d;
+  }
+};
+function Provider({ children }) {
+  const [lang, setLang] = useState(
+    () => localStorage.getItem("revo-lang") || "ru",
+  );
+  const [cart, setCart] = useState(() => read("revo-cart", {}));
+  const [favs, setFavs] = useState(() => read("revo-favs", []));
+  const [user, setUser] = useState(() => read("revo-user", null));
+  const [orders, setOrders] = useState(() => read("revo-orders", []));
+  const [toast, setToast] = useState("");
+  useEffect(() => {
+    localStorage.setItem("revo-lang", lang);
+  }, [lang]);
+  useEffect(() => {
+    localStorage.setItem("revo-cart", JSON.stringify(cart));
+  }, [cart]);
+  useEffect(() => {
+    localStorage.setItem("revo-favs", JSON.stringify(favs));
+  }, [favs]);
+  useEffect(() => {
+    localStorage.setItem("revo-user", JSON.stringify(user));
+  }, [user]);
+  useEffect(() => {
+    localStorage.setItem("revo-orders", JSON.stringify(orders));
+  }, [orders]);
+  const flash = (s) => {
+    setToast(s);
+    setTimeout(() => setToast(""), 2200);
+  };
+  const add = (id, q = 1) => {
+    setCart((x) => ({ ...x, [id]: (x[id] || 0) + q }));
+    flash(lang === "ru" ? "Добавлено в корзину" : "Added to cart");
+  };
+  const toggleFav = (id) =>
+    setFavs((x) => (x.includes(id) ? x.filter((v) => v !== id) : [...x, id]));
+  return (
+    <Store.Provider
+      value={{
+        lang,
+        setLang,
+        t: copy[lang],
+        cart,
+        setCart,
+        favs,
+        toggleFav,
+        add,
+        user,
+        setUser,
+        orders,
+        setOrders,
+        flash,
+      }}
+    >
+      {children}
+      {toast && (
+        <div className="toast">
+          <Check size={18} />
+          {toast}
+        </div>
+      )}
+    </Store.Provider>
+  );
+}
+const useStore = () => useContext(Store);
+
+function Header() {
+  const { lang, setLang, t, cart, favs, user } = useStore();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const nav = useNavigate();
+  const go = (e) => {
+    e.preventDefault();
+    if (q.trim()) nav(`/catalog?q=${encodeURIComponent(q)}`);
+  };
+  return (
+    <>
+      <header className="header">
+        <Link className="logo" to="/">
+          <img src={asset("raw-13.png")} alt="REVO" />
+        </Link>
+        <nav
+          className={open ? "nav open" : "nav"}
+          onClick={() => setOpen(false)}
+        >
+          <NavLink to="/catalog">{t.catalog}</NavLink>
+          <NavLink to="/catalog?type=gift">{t.gift}</NavLink>
+          <NavLink to="/catalog?type=combo">{t.combo}</NavLink>
+          <NavLink to="/support">{t.support}</NavLink>
+        </nav>
+        <div className="head-actions">
+          <button
+            className="lang"
+            onClick={() => setLang(lang === "ru" ? "en" : "ru")}
+          >
+            {t.lang}
+          </button>
+          <Link
+            aria-label={t.fav}
+            to="/favorites"
+            className="icon-link desktop-action"
+          >
+            <Heart />
+            <b>{favs.length || ""}</b>
+          </Link>
+          <Link
+            aria-label={t.cart}
+            to="/cart"
+            className="icon-link desktop-action"
+          >
+            <ShoppingBag />
+            <b>{Object.values(cart).reduce((a, b) => a + b, 0) || ""}</b>
+          </Link>
+          <Link
+            aria-label={t.account}
+            to={user ? "/account" : "/auth"}
+            className="icon-link desktop-action"
+          >
+            <User />
+          </Link>
+          <button className="menu" onClick={() => setOpen((v) => !v)}>
+            {open ? <X /> : <Menu />}
+          </button>
+        </div>
+      </header>
+      <form className="mobile-search" onSubmit={go}>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t.search}
+        />
+        <button>
+          <Search />
+        </button>
+      </form>
+    </>
+  );
+}
+function MobileNav() {
+  const { t, cart, favs, user } = useStore();
+  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
+  return (
+    <nav className="mobile-nav" aria-label="Mobile navigation">
+      <NavLink to="/">
+        <Coffee />
+        <span>REVO</span>
+      </NavLink>
+      <NavLink to="/catalog">
+        <Search />
+        <span>{t.catalog}</span>
+      </NavLink>
+      <NavLink to="/favorites">
+        <Heart />
+        <span>{t.fav}</span>
+        {favs.length > 0 && <b>{favs.length}</b>}
+      </NavLink>
+      <NavLink to="/cart">
+        <ShoppingBag />
+        <span>{t.cart}</span>
+        {cartCount > 0 && <b>{cartCount}</b>}
+      </NavLink>
+      <NavLink to={user ? "/account" : "/auth"}>
+        <User />
+        <span>{t.account}</span>
+      </NavLink>
+    </nav>
+  );
+}
+function Layout({ children }) {
+  const loc = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [loc.pathname]);
+  return (
+    <>
+      <Header />
+      <main>{children}</main>
+      <Footer />
+      <MobileNav />
+    </>
+  );
+}
+function Footer() {
+  const { t } = useStore();
+  return (
+    <footer>
+      <img src={asset("raw-13.png")} alt="REVO" />
+      <p>{t.heroText}</p>
+      <div>
+        <Link to="/catalog">{t.catalog}</Link>
+        <Link to="/account">{t.account}</Link>
+        <Link to="/support">{t.support}</Link>
+        <Link to="/admin">{t.admin}</Link>
+      </div>
+      <small>© 2026 REVO · Project №9</small>
+    </footer>
+  );
 }
 
-const Store = createContext(null)
-const read = (k,d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } }
-function Provider({children}){
- const [lang,setLang]=useState(()=>localStorage.getItem('revo-lang')||'ru')
- const [cart,setCart]=useState(()=>read('revo-cart',{})); const [favs,setFavs]=useState(()=>read('revo-favs',[]))
- const [user,setUser]=useState(()=>read('revo-user',null)); const [orders,setOrders]=useState(()=>read('revo-orders',[]))
- const [toast,setToast]=useState('')
- useEffect(()=>{localStorage.setItem('revo-lang',lang)},[lang]); useEffect(()=>{localStorage.setItem('revo-cart',JSON.stringify(cart))},[cart]); useEffect(()=>{localStorage.setItem('revo-favs',JSON.stringify(favs))},[favs]); useEffect(()=>{localStorage.setItem('revo-user',JSON.stringify(user))},[user]); useEffect(()=>{localStorage.setItem('revo-orders',JSON.stringify(orders))},[orders])
- const flash=(s)=>{setToast(s);setTimeout(()=>setToast(''),2200)}
- const add=(id,q=1)=>{setCart(x=>({...x,[id]:(x[id]||0)+q}));flash(lang==='ru'?'Добавлено в корзину':'Added to cart')}
- const toggleFav=id=>setFavs(x=>x.includes(id)?x.filter(v=>v!==id):[...x,id])
- return <Store.Provider value={{lang,setLang,t:copy[lang],cart,setCart,favs,toggleFav,add,user,setUser,orders,setOrders,flash}}>{children}{toast&&<div className="toast"><Check size={18}/>{toast}</div>}</Store.Provider>
+function Hero() {
+  const { t } = useStore();
+  return (
+    <section className="hero">
+      <div className="hero-copy">
+        <span>{t.heroTop}</span>
+        <h1>
+          <em>{t.heroBig}</em>
+          <br />
+          REVO
+        </h1>
+        <p>{t.heroText}</p>
+        <Link className="button" to="/catalog">
+          {t.shop}
+        </Link>
+      </div>
+      <div className="hero-photo">
+        <img src={asset("raw-09.png")} alt="REVO coffee" />
+      </div>
+      <aside>
+        <Link to="/catalog">{t.catalog}</Link>
+        <Link to="/catalog?type=gift">{t.gift}</Link>
+        <Link to="/catalog?type=combo">{t.combo}</Link>
+        <Link to="/support">{t.support}</Link>
+      </aside>
+    </section>
+  );
 }
-const useStore=()=>useContext(Store)
+function AddControl({ id, large = false }) {
+  const { cart, setCart, add, t } = useStore();
+  const count = cart[id] || 0;
+  const change = (delta) =>
+    setCart((current) => {
+      const next = {
+        ...current,
+        [id]: Math.max(0, (current[id] || 0) + delta),
+      };
+      if (!next[id]) delete next[id];
+      return next;
+    });
+  if (!count)
+    return (
+      <button
+        className={`button${large ? "" : " small"}`}
+        onClick={() => add(id)}
+      >
+        {t.add}
+      </button>
+    );
+  return (
+    <div
+      className={`add-stepper${large ? " large" : ""}`}
+      aria-label={`${t.cart}: ${count}`}
+    >
+      <button aria-label="Уменьшить количество" onClick={() => change(-1)}>
+        <Minus />
+      </button>
+      <strong>{count}</strong>
+      <button aria-label="Увеличить количество" onClick={() => change(1)}>
+        +
+      </button>
+    </div>
+  );
+}
+function ProductCard({ p }) {
+  const { lang, t, favs, toggleFav } = useStore();
+  return (
+    <article className="product-card">
+      <Link className="product-img" to={`/product/${p.id}`}>
+        <img src={p.image} alt={p.title[lang]} />
+        {p.oldPrice && <span className="sale">SALE</span>}
+      </Link>
+      <div className="product-body">
+        <div className="rating">
+          <Star size={15} fill="currentColor" /> {p.rating}
+        </div>
+        <Link to={`/product/${p.id}`}>
+          <h3>{p.title[lang]}</h3>
+        </Link>
+        <p>{p.note[lang]}</p>
+        <div className="price">
+          ${p.price.toFixed(2)} {p.oldPrice && <s>${p.oldPrice}</s>}
+        </div>
+        <div className="card-actions">
+          <AddControl id={p.id} />
+          <button
+            className={favs.includes(p.id) ? "heart active" : "heart"}
+            onClick={() => toggleFav(p.id)}
+            aria-label={t.fav}
+          >
+            <Heart fill={favs.includes(p.id) ? "currentColor" : "none"} />
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+function SectionTitle({ eyebrow, title }) {
+  return (
+    <div className="section-title">
+      <span>{eyebrow}</span>
+      <h2>{title}</h2>
+    </div>
+  );
+}
+function Home() {
+  const { t } = useStore();
+  return (
+    <Layout>
+      <Hero />
+      <section className="features">
+        <SectionTitle eyebrow="REVO" title={t.features} />
+        <div className="feature-grid">
+          <div>
+            <Coffee />
+            <h3>Свежая обжарка</h3>
+            <p>Обжариваем небольшими партиями.</p>
+          </div>
+          <div>
+            <Leaf />
+            <h3>Чистый состав</h3>
+            <p>Только отборное кофейное зерно.</p>
+          </div>
+          <div>
+            <Package />
+            <h3>Быстрая доставка</h3>
+            <p>Бережно упаковываем каждый заказ.</p>
+          </div>
+          <div>
+            <Gift />
+            <h3>Идеальный подарок</h3>
+            <p>Наборы с кофе и аксессуарами.</p>
+          </div>
+        </div>
+      </section>
+      <ProductRail
+        items={products.slice(0, 6)}
+        eyebrow={t.bestSub}
+        title={t.best}
+      />
+      <GiftSection />
+      <ProductRail
+        items={products.filter((x) => x.roast === "combo")}
+        eyebrow={t.comboSub}
+        title={t.comboTitle}
+      />
+    </Layout>
+  );
+}
+function ProductRail({ items, eyebrow, title }) {
+  const rail = useRef(null);
+  const move = (direction) => {
+    const el = rail.current;
+    if (!el) return;
+    const card = el.querySelector(".product-card");
+    const gap = parseFloat(getComputedStyle(el).gap) || 0;
+    const step = (card?.getBoundingClientRect().width || el.clientWidth) + gap;
+    el.scrollBy({ left: direction * step, behavior: "smooth" });
+  };
+  return (
+    <section className="rail-section">
+      <SectionTitle eyebrow={eyebrow} title={title} />
+      <div className="rail-controls">
+        <button
+          type="button"
+          aria-label="Предыдущие товары"
+          onClick={() => move(-1)}
+        >
+          <ArrowLeft />
+        </button>
+        <button
+          type="button"
+          aria-label="Следующие товары"
+          onClick={() => move(1)}
+        >
+          <ArrowRight />
+        </button>
+      </div>
+      <div className="rail" ref={rail}>
+        {items.map((p) => (
+          <ProductCard key={p.id} p={p} />
+        ))}
+      </div>
+    </section>
+  );
+}
+function GiftSection() {
+  const { lang, t, add } = useStore();
+  const p = products.find((x) => x.id === "giftset");
+  return (
+    <section className="gift-section">
+      <div className="gift-image">
+        <img src={p.image} alt={p.title[lang]} />
+      </div>
+      <div className="gift-copy">
+        <span>${p.price.toFixed(2)}</span>
+        <h2>{p.title[lang]}</h2>
+        <p>{p.note[lang]}</p>
+        <ul>
+          <li>
+            <Coffee /> 250 г кофе
+          </li>
+          <li>
+            <Gift /> Фирменный фильтр
+          </li>
+          <li>
+            <Package /> Подарочная упаковка
+          </li>
+        </ul>
+        <button className="button" onClick={() => add(p.id)}>
+          {t.buy}
+        </button>
+      </div>
+    </section>
+  );
+}
 
-function Header(){const {lang,setLang,t,cart,favs,user}=useStore();const [open,setOpen]=useState(false);const [q,setQ]=useState('');const nav=useNavigate(); const go=e=>{e.preventDefault();if(q.trim())nav(`/catalog?q=${encodeURIComponent(q)}`)};return <>
- <header className="header"><Link className="logo" to="/"><img src={asset('raw-13.png')} alt="REVO"/></Link><nav className={open?'nav open':'nav'} onClick={()=>setOpen(false)}><NavLink to="/catalog">{t.catalog}</NavLink><NavLink to="/catalog?type=gift">{t.gift}</NavLink><NavLink to="/catalog?type=combo">{t.combo}</NavLink><NavLink to="/support">{t.support}</NavLink></nav><div className="head-actions"><button className="lang" onClick={()=>setLang(lang==='ru'?'en':'ru')}>{t.lang}</button><Link aria-label={t.fav} to="/favorites" className="icon-link desktop-action"><Heart/><b>{favs.length||''}</b></Link><Link aria-label={t.cart} to="/cart" className="icon-link desktop-action"><ShoppingBag/><b>{Object.values(cart).reduce((a,b)=>a+b,0)||''}</b></Link><Link aria-label={t.account} to={user?'/account':'/auth'} className="icon-link desktop-action"><User/></Link><button className="menu" onClick={()=>setOpen(v=>!v)}>{open?<X/>:<Menu/>}</button></div></header>
- <form className="mobile-search" onSubmit={go}><input value={q} onChange={e=>setQ(e.target.value)} placeholder={t.search}/><button><Search/></button></form></>}
-function MobileNav(){const {t,cart,favs,user}=useStore();const cartCount=Object.values(cart).reduce((a,b)=>a+b,0);return <nav className="mobile-nav" aria-label="Mobile navigation"><NavLink to="/"><Coffee/><span>REVO</span></NavLink><NavLink to="/catalog"><Search/><span>{t.catalog}</span></NavLink><NavLink to="/favorites"><Heart/><span>{t.fav}</span>{favs.length>0&&<b>{favs.length}</b>}</NavLink><NavLink to="/cart"><ShoppingBag/><span>{t.cart}</span>{cartCount>0&&<b>{cartCount}</b>}</NavLink><NavLink to={user?'/account':'/auth'}><User/><span>{t.account}</span></NavLink></nav>}
-function Layout({children}){const loc=useLocation();useEffect(()=>{window.scrollTo(0,0)},[loc.pathname]);return <><Header/><main>{children}</main><Footer/><MobileNav/></>}
-function Footer(){const {t}=useStore();return <footer><img src={asset('raw-13.png')} alt="REVO"/><p>{t.heroText}</p><div><Link to="/catalog">{t.catalog}</Link><Link to="/account">{t.account}</Link><Link to="/support">{t.support}</Link><Link to="/admin">{t.admin}</Link></div><small>© 2026 REVO · Project №9</small></footer>}
+function Catalog() {
+  const { t } = useStore();
+  const loc = useLocation();
+  const qs = new URLSearchParams(loc.search);
+  const [q, setQ] = useState(qs.get("q") || "");
+  const type = qs.get("type");
+  const list = products.filter(
+    (p) =>
+      (!type || (type === "gift" ? p.roast === "gift" : p.roast === "combo")) &&
+      `${p.title.ru} ${p.title.en} ${p.note.ru} ${p.note.en}`
+        .toLowerCase()
+        .includes(q.toLowerCase()),
+  );
+  return (
+    <Layout>
+      <div className="page">
+        <div className="page-head">
+          <div>
+            <span>REVO SHOP</span>
+            <h1>{t.catalog}</h1>
+          </div>
+          <label className="catalog-search">
+            <Search />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={t.search}
+            />
+          </label>
+        </div>
+        <div className="catalog-grid">
+          {list.map((p) => (
+            <ProductCard p={p} key={p.id} />
+          ))}
+        </div>
+        {!list.length && <Empty />}
+      </div>
+    </Layout>
+  );
+}
+function Product() {
+  const { id } = useParams();
+  const { lang, t, favs, toggleFav } = useStore();
+  const p = products.find((x) => x.id === id);
+  const [active, setActive] = useState(0);
+  const touchStart = useRef(null);
+  const [review, setReview] = useState("");
+  const [reviews, setReviews] = useState(() => read(`revo-reviews-${id}`, []));
+  if (!p)
+    return (
+      <Layout>
+        <Empty />
+      </Layout>
+    );
+  const show = (next) =>
+    setActive(
+      (current) => (current + next + p.gallery.length) % p.gallery.length,
+    );
+  const touchEnd = (e) => {
+    if (touchStart.current === null) return;
+    const distance = e.changedTouches[0].clientX - touchStart.current;
+    if (Math.abs(distance) > 45) show(distance < 0 ? 1 : -1);
+    touchStart.current = null;
+  };
+  const submit = (e) => {
+    e.preventDefault();
+    if (!review.trim()) return;
+    const n = [
+      { text: review, date: new Date().toLocaleDateString(), rating: 5 },
+      ...reviews,
+    ];
+    setReviews(n);
+    localStorage.setItem(`revo-reviews-${id}`, JSON.stringify(n));
+    setReview("");
+  };
+  return (
+    <Layout>
+      <div className="product-page">
+        <Link to="/catalog" className="back">
+          <ArrowLeft /> {t.back}
+        </Link>
+        <div className="product-detail">
+          <div className="gallery">
+            <div
+              className="main-image"
+              onTouchStart={(e) => {
+                touchStart.current = e.touches[0].clientX;
+              }}
+              onTouchEnd={touchEnd}
+            >
+              <img
+                src={p.gallery[active]}
+                alt={`${p.title[lang]} ${active + 1}`}
+              />
+              {p.gallery.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="gallery-arrow previous"
+                    aria-label="Предыдущее фото"
+                    onClick={() => show(-1)}
+                  >
+                    <ArrowLeft />
+                  </button>
+                  <button
+                    type="button"
+                    className="gallery-arrow next"
+                    aria-label="Следующее фото"
+                    onClick={() => show(1)}
+                  >
+                    <ArrowRight />
+                  </button>
+                </>
+              )}
+            </div>
+            <div className="gallery-dots" aria-label="Фотографии товара">
+              {p.gallery.map((_, i) => (
+                <button
+                  type="button"
+                  className={active === i ? "active" : ""}
+                  aria-label={`Фото ${i + 1}`}
+                  onClick={() => setActive(i)}
+                  key={i}
+                />
+              ))}
+            </div>
+            <div className="thumbs">
+              {p.gallery.map((x, i) => (
+                <button
+                  type="button"
+                  className={active === i ? "active" : ""}
+                  onClick={() => setActive(i)}
+                  key={x}
+                >
+                  <img src={x} alt={`${p.title[lang]}, фото ${i + 1}`} />
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="product-info">
+            <div className="rating">
+              <Star fill="currentColor" /> {p.rating} · 128{" "}
+              {t.reviews.toLowerCase()}
+            </div>
+            <h1>{p.title[lang]}</h1>
+            <div className="detail-price">${p.price.toFixed(2)}</div>
+            <p>{p.note[lang]}</p>
+            <div className="chips">
+              <span>250 g</span>
+              <span>{p.roast}</span>
+              <span>
+                {t.stock}: {p.stock}
+              </span>
+            </div>
+            <div className="buy-row">
+              <AddControl id={p.id} large />
+              <button
+                className={favs.includes(p.id) ? "heart active" : "heart"}
+                onClick={() => toggleFav(p.id)}
+              >
+                <Heart fill={favs.includes(p.id) ? "currentColor" : "none"} />
+              </button>
+            </div>
+          </div>
+        </div>
+        <section className="reviews">
+          <SectionTitle eyebrow={t.write} title={t.reviews} />
+          <form onSubmit={submit}>
+            <div className="stars">★★★★★</div>
+            <textarea
+              value={review}
+              onChange={(e) => setReview(e.target.value)}
+              placeholder={t.write}
+            />
+            <button className="button">{t.send}</button>
+          </form>
+          {reviews.map((r, i) => (
+            <blockquote key={i}>
+              <div className="stars">{"★".repeat(r.rating)}</div>
+              <p>{r.text}</p>
+              <small>{r.date}</small>
+            </blockquote>
+          ))}
+        </section>
+      </div>
+    </Layout>
+  );
+}
+function Empty() {
+  const { t } = useStore();
+  return (
+    <div className="empty">
+      <Coffee />
+      <h2>{t.empty}</h2>
+      <Link className="button" to="/catalog">
+        {t.shop}
+      </Link>
+    </div>
+  );
+}
+function Favorites() {
+  const { favs, t } = useStore();
+  const list = products.filter((p) => favs.includes(p.id));
+  return (
+    <Layout>
+      <div className="page">
+        <div className="page-head">
+          <h1>{t.fav}</h1>
+        </div>
+        {list.length ? (
+          <div className="catalog-grid">
+            {list.map((p) => (
+              <ProductCard p={p} key={p.id} />
+            ))}
+          </div>
+        ) : (
+          <Empty />
+        )}
+      </div>
+    </Layout>
+  );
+}
+function Cart() {
+  const { cart, setCart, lang, t } = useStore();
+  const nav = useNavigate();
+  const list = products.filter((p) => cart[p.id]);
+  const total = list.reduce((s, p) => s + p.price * cart[p.id], 0);
+  const qty = (id, d) =>
+    setCart((x) => {
+      const n = { ...x, [id]: Math.max(0, (x[id] || 0) + d) };
+      if (!n[id]) delete n[id];
+      return n;
+    });
+  return (
+    <Layout>
+      <div className="page narrow">
+        <div className="page-head">
+          <h1>{t.cart}</h1>
+        </div>
+        {list.length ? (
+          <>
+            <div className="cart-list">
+              {list.map((p) => (
+                <div className="cart-item" key={p.id}>
+                  <img src={p.image} />
+                  <Link to={`/product/${p.id}`}>
+                    <b>{p.title[lang]}</b>
+                    <span>${p.price.toFixed(2)}</span>
+                  </Link>
+                  <div className="qty">
+                    <button onClick={() => qty(p.id, -1)}>
+                      <Minus />
+                    </button>
+                    <b>{cart[p.id]}</b>
+                    <button onClick={() => qty(p.id, 1)}>+</button>
+                  </div>
+                  <button
+                    className="trash"
+                    onClick={() => qty(p.id, -cart[p.id])}
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="summary">
+              <span>{t.total}</span>
+              <strong>${total.toFixed(2)}</strong>
+              <button className="button" onClick={() => nav("/checkout")}>
+                {t.checkout}
+              </button>
+            </div>
+          </>
+        ) : (
+          <Empty />
+        )}
+      </div>
+    </Layout>
+  );
+}
+function Checkout() {
+  const { cart, setCart, user, orders, setOrders, t } = useStore();
+  const nav = useNavigate();
+  const total = products.reduce((s, p) => s + (cart[p.id] || 0) * p.price, 0);
+  const submit = (e) => {
+    e.preventDefault();
+    const order = {
+      id: `RV-${Date.now().toString().slice(-6)}`,
+      created: new Date().toISOString(),
+      items: cart,
+      total,
+      status: "new",
+    };
+    setOrders([order, ...orders]);
+    setCart({});
+    nav("/success");
+  };
+  return (
+    <Layout>
+      <div className="page narrow">
+        <div className="page-head">
+          <h1>{t.checkout}</h1>
+        </div>
+        <form className="form-card" onSubmit={submit}>
+          <input required placeholder={t.name} defaultValue={user?.name} />
+          <input
+            required
+            type="email"
+            placeholder={t.email}
+            defaultValue={user?.email}
+          />
+          <input required placeholder="Телефон / Phone" />
+          <input required placeholder="Адрес доставки / Delivery address" />
+          <textarea placeholder="Комментарий / Comment" />
+          <div className="summary inline">
+            <span>{t.total}</span>
+            <strong>${total.toFixed(2)}</strong>
+            <button className="button" disabled={!total}>
+              {t.checkout}
+            </button>
+          </div>
+        </form>
+      </div>
+    </Layout>
+  );
+}
+function Success() {
+  const { t } = useStore();
+  return (
+    <Layout>
+      <div className="empty success">
+        <Check />
+        <h1>{t.orderDone}</h1>
+        <p>{t.orderText}</p>
+        <Link className="button" to="/catalog">
+          {t.shop}
+        </Link>
+      </div>
+    </Layout>
+  );
+}
+function Auth() {
+  const { t, setUser } = useStore();
+  const nav = useNavigate();
+  const [mode, setMode] = useState("login");
+  const submit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setUser({
+      name: fd.get("name") || "Coffee lover",
+      email: fd.get("email"),
+      role: fd.get("email") === "admin@revo.coffee" ? "admin" : "customer",
+    });
+    nav("/account");
+  };
+  return (
+    <Layout>
+      <div className="auth-page">
+        <div className="auth-art">
+          <img src={asset("raw-10.png")} alt="REVO lifestyle" />
+        </div>
+        <form onSubmit={submit} className="auth-card">
+          <span>REVO ACCOUNT</span>
+          <h1>{mode === "login" ? t.login : t.register}</h1>
+          {mode === "register" && (
+            <input name="name" required placeholder={t.name} />
+          )}
+          <input name="email" required type="email" placeholder={t.email} />
+          <input
+            name="password"
+            required
+            type="password"
+            minLength="6"
+            placeholder={t.password}
+          />
+          <button className="button">
+            {mode === "login" ? t.login : t.register}
+          </button>
+          <button
+            type="button"
+            className="text-btn"
+            onClick={() => setMode(mode === "login" ? "register" : "login")}
+          >
+            {mode === "login" ? t.register : t.login}
+          </button>
+        </form>
+      </div>
+    </Layout>
+  );
+}
+function Account() {
+  const { user, setUser, orders, t } = useStore();
+  if (!user) return <Auth />;
+  return (
+    <Layout>
+      <div className="page narrow">
+        <div className="profile-head">
+          <div>
+            <span>REVO MEMBER</span>
+            <h1>{user.name}</h1>
+            <p>{user.email}</p>
+          </div>
+          <button className="outline" onClick={() => setUser(null)}>
+            {t.logout}
+          </button>
+        </div>
+        <h2>{t.orders}</h2>
+        <div className="orders">
+          {orders.length ? (
+            orders.map((o) => (
+              <div key={o.id}>
+                <b>{o.id}</b>
+                <span>{new Date(o.created).toLocaleDateString()}</span>
+                <strong>${o.total.toFixed(2)}</strong>
+                <em>{o.status}</em>
+              </div>
+            ))
+          ) : (
+            <p>{t.empty}</p>
+          )}
+        </div>
+        {user.role === "admin" && (
+          <Link className="button" to="/admin">
+            {t.admin}
+          </Link>
+        )}
+      </div>
+    </Layout>
+  );
+}
+function Support() {
+  const { user, t, flash } = useStore();
+  const submit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const messages = read("revo-support", []);
+    localStorage.setItem(
+      "revo-support",
+      JSON.stringify([
+        {
+          id: Date.now(),
+          name: fd.get("name"),
+          email: fd.get("email"),
+          text: fd.get("text"),
+          status: "new",
+        },
+        ...messages,
+      ]),
+    );
+    e.currentTarget.reset();
+    flash(t.lang === "EN" ? "Сообщение отправлено" : "Message sent");
+  };
+  return (
+    <Layout>
+      <div className="page narrow">
+        <div className="page-head">
+          <h1>{t.support}</h1>
+        </div>
+        <form className="form-card" onSubmit={submit}>
+          <input
+            name="name"
+            required
+            placeholder={t.name}
+            defaultValue={user?.name}
+          />
+          <input
+            name="email"
+            required
+            type="email"
+            placeholder={t.email}
+            defaultValue={user?.email}
+          />
+          <textarea name="text" required placeholder={t.write} />
+          <button className="button">{t.send}</button>
+        </form>
+      </div>
+    </Layout>
+  );
+}
+function Admin() {
+  const { lang, t, orders, setOrders, flash } = useStore();
+  const ui =
+    lang === "ru"
+      ? {
+          overview: "Обзор",
+          store: "Открыть магазин",
+          revenue: "Выручка",
+          newOrders: "Новые заказы",
+          orderSummary: "Состояние заказов",
+          new: "Новый",
+          work: "В работе",
+          done: "Завершён",
+          answered: "Отвечено",
+          reply: "Ответить",
+          replyPlaceholder: "Напишите ответ клиенту",
+          sendReply: "Отправить ответ",
+          saved: "Изменения сохранены",
+          stockSaved: "Остаток сохранён",
+          replySaved: "Ответ сохранён",
+          reviews: "Отзывы",
+          deleteReview: "Удалить отзыв",
+          reviewDeleted: "Отзыв удалён",
+          noData: "Данных пока нет",
+        }
+      : {
+          overview: "Overview",
+          store: "Open store",
+          revenue: "Revenue",
+          newOrders: "New orders",
+          orderSummary: "Order status",
+          new: "New",
+          work: "In progress",
+          done: "Completed",
+          answered: "Answered",
+          reply: "Reply",
+          replyPlaceholder: "Write a reply to the customer",
+          sendReply: "Send reply",
+          saved: "Changes saved",
+          stockSaved: "Stock saved",
+          replySaved: "Reply saved",
+          reviews: "Reviews",
+          deleteReview: "Delete review",
+          reviewDeleted: "Review deleted",
+          noData: "No data yet",
+        };
+  const [tab, setTab] = useState("overview");
+  const defaultStock = Object.fromEntries(products.map((p) => [p.id, p.stock]));
+  const [stock, setStock] = useState(() => read("revo-stock", defaultStock));
+  const [messages, setMessages] = useState(() => read("revo-support", []));
+  const [drafts, setDrafts] = useState({});
+  const [reviewVersion, setReviewVersion] = useState(0);
+  const reviews = products.flatMap((product) =>
+    read(`revo-reviews-${product.id}`, []).map((review, reviewIndex) => ({
+      ...review,
+      product,
+      reviewIndex,
+    })),
+  );
+  const totalStock = Object.values(stock).reduce(
+    (a, b) => a + Number(b || 0),
+    0,
+  );
+  const revenue = orders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+  const newOrders = orders.filter((o) => o.status === "new").length;
+  const saveStock = (id) => {
+    const clean = { ...stock, [id]: Math.max(0, Number(stock[id]) || 0) };
+    setStock(clean);
+    localStorage.setItem("revo-stock", JSON.stringify(clean));
+    flash(ui.stockSaved);
+  };
+  const updateOrder = (id, status) => {
+    setOrders(orders.map((o) => (o.id === id ? { ...o, status } : o)));
+    flash(ui.saved);
+  };
+  const sendReply = (id) => {
+    const text = (drafts[id] || "").trim();
+    if (!text) return;
+    const next = messages.map((m) =>
+      m.id === id
+        ? {
+            ...m,
+            reply: text,
+            status: "answered",
+            repliedAt: new Date().toISOString(),
+          }
+        : m,
+    );
+    setMessages(next);
+    localStorage.setItem("revo-support", JSON.stringify(next));
+    setDrafts((current) => ({ ...current, [id]: "" }));
+    flash(ui.replySaved);
+  };
+  const deleteReview = (productId, reviewIndex) => {
+    const key = `revo-reviews-${productId}`;
+    const next = read(key, []).filter((_, index) => index !== reviewIndex);
+    localStorage.setItem(key, JSON.stringify(next));
+    setReviewVersion((version) => version + 1);
+    flash(ui.reviewDeleted);
+  };
+  void reviewVersion;
+  const tabs = [
+    ["overview", ui.overview],
+    ["products", t.products],
+    ["orders", t.orders],
+    ["messages", t.messages],
+    ["reviews", ui.reviews],
+  ];
+  return (
+    <Layout>
+      <div className="admin">
+        <div className="admin-top">
+          <div>
+            <span>REVO CONTROL</span>
+            <h1>{t.admin}</h1>
+          </div>
+          <Link className="outline" to="/">
+            {ui.store}
+          </Link>
+        </div>
+        <div className="admin-tabs">
+          {tabs.map((x) => (
+            <button
+              type="button"
+              className={tab === x[0] ? "active" : ""}
+              onClick={() => setTab(x[0])}
+              key={x[0]}
+            >
+              {x[1]}
+              {x[0] === "orders" && newOrders > 0 ? <b>{newOrders}</b> : null}
+              {x[0] === "messages" &&
+              messages.filter((m) => m.status !== "answered").length > 0 ? (
+                <b>{messages.filter((m) => m.status !== "answered").length}</b>
+              ) : null}
+              {x[0] === "reviews" && reviews.length > 0 ? (
+                <b>{reviews.length}</b>
+              ) : null}
+            </button>
+          ))}
+        </div>
+        {tab === "overview" && (
+          <>
+            <div className="stats">
+              <div>
+                <span>{t.products}</span>
+                <b>{products.length}</b>
+              </div>
+              <div>
+                <span>{t.stock}</span>
+                <b>{totalStock}</b>
+              </div>
+              <div>
+                <span>{ui.newOrders}</span>
+                <b>{newOrders}</b>
+              </div>
+              <div>
+                <span>{ui.revenue}</span>
+                <b>${revenue.toFixed(2)}</b>
+              </div>
+            </div>
+            <div className="admin-block order-summary">
+              <div>
+                <h2>{ui.orderSummary}</h2>
+                <p>REVO Dashboard</p>
+              </div>
+              <div>
+                <span>
+                  {ui.new}
+                  <b>{orders.filter((o) => o.status === "new").length}</b>
+                </span>
+                <span>
+                  {ui.work}
+                  <b>{orders.filter((o) => o.status === "work").length}</b>
+                </span>
+                <span>
+                  {ui.done}
+                  <b>{orders.filter((o) => o.status === "done").length}</b>
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+        {tab === "products" && (
+          <div className="stock-list">
+            {products.map((p) => (
+              <div key={p.id}>
+                <img src={p.image} alt="" />
+                <div className="stock-name">
+                  <b>{p.title[lang]}</b>
+                  <small>${p.price.toFixed(2)}</small>
+                </div>
+                <label>
+                  {t.stock}
+                  <input
+                    min="0"
+                    type="number"
+                    value={stock[p.id] ?? 0}
+                    onChange={(e) =>
+                      setStock({ ...stock, [p.id]: e.target.value })
+                    }
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="button small"
+                  onClick={() => saveStock(p.id)}
+                >
+                  {t.save}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {tab === "orders" && (
+          <div className="admin-block admin-list">
+            {orders.length ? (
+              orders.map((o) => (
+                <div className="admin-row order-row" key={o.id}>
+                  <div>
+                    <b>{o.id}</b>
+                    <small>
+                      {new Date(o.created).toLocaleDateString(
+                        lang === "ru" ? "ru-RU" : "en-US",
+                      )}
+                    </small>
+                  </div>
+                  <span>${Number(o.total).toFixed(2)}</span>
+                  <select
+                    aria-label={t.status}
+                    value={o.status}
+                    onChange={(e) => updateOrder(o.id, e.target.value)}
+                  >
+                    <option value="new">{ui.new}</option>
+                    <option value="work">{ui.work}</option>
+                    <option value="done">{ui.done}</option>
+                  </select>
+                </div>
+              ))
+            ) : (
+              <p>{ui.noData}</p>
+            )}
+          </div>
+        )}
+        {tab === "messages" && (
+          <div className="admin-block admin-list">
+            {messages.length ? (
+              messages.map((m) => (
+                <div className="message support-message" key={m.id}>
+                  <div className="message-head">
+                    <b>{m.name}</b>
+                    <span
+                      className={`status ${m.status === "answered" ? "answered" : "new"}`}
+                    >
+                      {m.status === "answered" ? ui.answered : ui.new}
+                    </span>
+                  </div>
+                  <a href={`mailto:${m.email}`}>{m.email}</a>
+                  <p>{m.text}</p>
+                  {m.reply && (
+                    <div className="saved-reply">
+                      <b>{ui.reply}</b>
+                      <p>{m.reply}</p>
+                    </div>
+                  )}
+                  <div className="reply-box">
+                    <textarea
+                      value={drafts[m.id] || ""}
+                      onChange={(e) =>
+                        setDrafts({ ...drafts, [m.id]: e.target.value })
+                      }
+                      placeholder={ui.replyPlaceholder}
+                    />
+                    <button
+                      type="button"
+                      className="button small"
+                      disabled={!(drafts[m.id] || "").trim()}
+                      onClick={() => sendReply(m.id)}
+                    >
+                      {ui.sendReply}
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p>{ui.noData}</p>
+            )}
+          </div>
+        )}
+        {tab === "reviews" && (
+          <div className="admin-block admin-list">
+            {reviews.length ? (
+              reviews.map((review) => (
+                <article
+                  className="admin-review"
+                  key={`${review.product.id}-${review.reviewIndex}`}
+                >
+                  <img src={review.product.image} alt="" />
+                  <div className="admin-review-copy">
+                    <b>{review.product.title[lang]}</b>
+                    <div className="stars">
+                      {"★".repeat(Number(review.rating) || 5)}
+                    </div>
+                    <p>{review.text}</p>
+                    <small>{review.date}</small>
+                  </div>
+                  <button
+                    type="button"
+                    className="delete-review"
+                    aria-label={ui.deleteReview}
+                    onClick={() =>
+                      deleteReview(review.product.id, review.reviewIndex)
+                    }
+                  >
+                    <Trash2 />
+                    <span>{ui.deleteReview}</span>
+                  </button>
+                </article>
+              ))
+            ) : (
+              <p>{ui.noData}</p>
+            )}
+          </div>
+        )}
+      </div>
+    </Layout>
+  );
+}
 
-function Hero(){const {t}=useStore();return <section className="hero"><div className="hero-copy"><span>{t.heroTop}</span><h1><em>{t.heroBig}</em><br/>REVO</h1><p>{t.heroText}</p><Link className="button" to="/catalog">{t.shop}</Link></div><div className="hero-photo"><img src={asset('raw-09.png')} alt="REVO coffee"/></div><aside><Link to="/catalog">{t.catalog}</Link><Link to="/catalog?type=gift">{t.gift}</Link><Link to="/catalog?type=combo">{t.combo}</Link><Link to="/support">{t.support}</Link></aside></section>}
-function AddControl({id,large=false}){const {cart,setCart,add,t}=useStore();const count=cart[id]||0;const change=delta=>setCart(current=>{const next={...current,[id]:Math.max(0,(current[id]||0)+delta)};if(!next[id])delete next[id];return next});if(!count)return <button className={`button${large?'':' small'}`} onClick={()=>add(id)}>{t.add}</button>;return <div className={`add-stepper${large?' large':''}`} aria-label={`${t.cart}: ${count}`}><button aria-label="Уменьшить количество" onClick={()=>change(-1)}><Minus/></button><strong>{count}</strong><button aria-label="Увеличить количество" onClick={()=>change(1)}>+</button></div>}
-function ProductCard({p}){const {lang,t,favs,toggleFav}=useStore();return <article className="product-card"><Link className="product-img" to={`/product/${p.id}`}><img src={p.image} alt={p.title[lang]}/>{p.oldPrice&&<span className="sale">SALE</span>}</Link><div className="product-body"><div className="rating"><Star size={15} fill="currentColor"/> {p.rating}</div><Link to={`/product/${p.id}`}><h3>{p.title[lang]}</h3></Link><p>{p.note[lang]}</p><div className="price">${p.price.toFixed(2)} {p.oldPrice&&<s>${p.oldPrice}</s>}</div><div className="card-actions"><AddControl id={p.id}/><button className={favs.includes(p.id)?'heart active':'heart'} onClick={()=>toggleFav(p.id)} aria-label={t.fav}><Heart fill={favs.includes(p.id)?'currentColor':'none'}/></button></div></div></article>}
-function SectionTitle({eyebrow,title}){return <div className="section-title"><span>{eyebrow}</span><h2>{title}</h2></div>}
-function Home(){const {t}=useStore();return <Layout><Hero/><section className="features"><SectionTitle eyebrow="REVO" title={t.features}/><div className="feature-grid"><div><Coffee/><h3>Свежая обжарка</h3><p>Обжариваем небольшими партиями.</p></div><div><Leaf/><h3>Чистый состав</h3><p>Только отборное кофейное зерно.</p></div><div><Package/><h3>Быстрая доставка</h3><p>Бережно упаковываем каждый заказ.</p></div><div><Gift/><h3>Идеальный подарок</h3><p>Наборы с кофе и аксессуарами.</p></div></div></section><ProductRail items={products.slice(0,6)} eyebrow={t.bestSub} title={t.best}/><GiftSection/><ProductRail items={products.filter(x=>x.roast==='combo')} eyebrow={t.comboSub} title={t.comboTitle}/></Layout>}
-function ProductRail({items,eyebrow,title}){const rail=useRef(null);const move=direction=>{const el=rail.current;if(!el)return;const card=el.querySelector('.product-card');const gap=parseFloat(getComputedStyle(el).gap)||0;const step=(card?.getBoundingClientRect().width||el.clientWidth)+gap;el.scrollBy({left:direction*step,behavior:'smooth'})};return <section className="rail-section"><SectionTitle eyebrow={eyebrow} title={title}/><div className="rail-controls"><button type="button" aria-label="Предыдущие товары" onClick={()=>move(-1)}><ArrowLeft/></button><button type="button" aria-label="Следующие товары" onClick={()=>move(1)}><ArrowRight/></button></div><div className="rail" ref={rail}>{items.map(p=><ProductCard key={p.id} p={p}/>)}</div></section>}
-function GiftSection(){const {lang,t,add}=useStore();const p=products.find(x=>x.id==='giftset');return <section className="gift-section"><div className="gift-image"><img src={p.image} alt={p.title[lang]}/></div><div className="gift-copy"><span>${p.price.toFixed(2)}</span><h2>{p.title[lang]}</h2><p>{p.note[lang]}</p><ul><li><Coffee/> 250 г кофе</li><li><Gift/> Фирменный фильтр</li><li><Package/> Подарочная упаковка</li></ul><button className="button" onClick={()=>add(p.id)}>{t.buy}</button></div></section>}
-
-function Catalog(){const {t}=useStore();const loc=useLocation();const qs=new URLSearchParams(loc.search);const [q,setQ]=useState(qs.get('q')||'');const type=qs.get('type');const list=products.filter(p=>(!type||(type==='gift'?p.roast==='gift':p.roast==='combo'))&&(`${p.title.ru} ${p.title.en} ${p.note.ru} ${p.note.en}`.toLowerCase().includes(q.toLowerCase())));return <Layout><div className="page"><div className="page-head"><div><span>REVO SHOP</span><h1>{t.catalog}</h1></div><label className="catalog-search"><Search/><input value={q} onChange={e=>setQ(e.target.value)} placeholder={t.search}/></label></div><div className="catalog-grid">{list.map(p=><ProductCard p={p} key={p.id}/>)}</div>{!list.length&&<Empty/>}</div></Layout>}
-// eslint-disable-next-line react-hooks/set-state-in-effect
-function Product(){const {id}=useParams();const {lang,t,favs,toggleFav}=useStore();const p=products.find(x=>x.id===id);const [active,setActive]=useState(0);const touchStart=useRef(null);const [review,setReview]=useState('');const [reviews,setReviews]=useState(()=>read(`revo-reviews-${id}`,[]));useEffect(()=>setActive(0),[id]);if(!p)return <Layout><Empty/></Layout>;const show=next=>setActive(current=>(current+next+p.gallery.length)%p.gallery.length);const touchEnd=e=>{if(touchStart.current===null)return;const distance=e.changedTouches[0].clientX-touchStart.current;if(Math.abs(distance)>45)show(distance<0?1:-1);touchStart.current=null};const submit=e=>{e.preventDefault();if(!review.trim())return;const n=[{text:review,date:new Date().toLocaleDateString(),rating:5},...reviews];setReviews(n);localStorage.setItem(`revo-reviews-${id}`,JSON.stringify(n));setReview('')};return <Layout><div className="product-page"><Link to="/catalog" className="back"><ArrowLeft/> {t.back}</Link><div className="product-detail"><div className="gallery"><div className="main-image" onTouchStart={e=>{touchStart.current=e.touches[0].clientX}} onTouchEnd={touchEnd}><img src={p.gallery[active]} alt={`${p.title[lang]} ${active+1}`}/>{p.gallery.length>1&&<><button type="button" className="gallery-arrow previous" aria-label="Предыдущее фото" onClick={()=>show(-1)}><ArrowLeft/></button><button type="button" className="gallery-arrow next" aria-label="Следующее фото" onClick={()=>show(1)}><ArrowRight/></button></>}</div><div className="gallery-dots" aria-label="Фотографии товара">{p.gallery.map((_,i)=><button type="button" className={active===i?'active':''} aria-label={`Фото ${i+1}`} onClick={()=>setActive(i)} key={i}/>)}</div><div className="thumbs">{p.gallery.map((x,i)=><button type="button" className={active===i?'active':''} onClick={()=>setActive(i)} key={x}><img src={x} alt={`${p.title[lang]}, фото ${i+1}`}/></button>)}</div></div><div className="product-info"><div className="rating"><Star fill="currentColor"/> {p.rating} · 128 {t.reviews.toLowerCase()}</div><h1>{p.title[lang]}</h1><div className="detail-price">${p.price.toFixed(2)}</div><p>{p.note[lang]}</p><div className="chips"><span>250 g</span><span>{p.roast}</span><span>{t.stock}: {p.stock}</span></div><div className="buy-row"><AddControl id={p.id} large/><button className={favs.includes(p.id)?'heart active':'heart'} onClick={()=>toggleFav(p.id)}><Heart fill={favs.includes(p.id)?'currentColor':'none'}/></button></div></div></div><section className="reviews"><SectionTitle eyebrow={t.write} title={t.reviews}/><form onSubmit={submit}><div className="stars">★★★★★</div><textarea value={review} onChange={e=>setReview(e.target.value)} placeholder={t.write}/><button className="button">{t.send}</button></form>{reviews.map((r,i)=><blockquote key={i}><div className="stars">{'★'.repeat(r.rating)}</div><p>{r.text}</p><small>{r.date}</small></blockquote>)}</section></div></Layout>}
-function Empty(){const {t}=useStore();return <div className="empty"><Coffee/><h2>{t.empty}</h2><Link className="button" to="/catalog">{t.shop}</Link></div>}
-function Favorites(){const {favs,t}=useStore();const list=products.filter(p=>favs.includes(p.id));return <Layout><div className="page"><div className="page-head"><h1>{t.fav}</h1></div>{list.length?<div className="catalog-grid">{list.map(p=><ProductCard p={p} key={p.id}/>)}</div>:<Empty/>}</div></Layout>}
-function Cart(){const {cart,setCart,lang,t}=useStore();const nav=useNavigate();const list=products.filter(p=>cart[p.id]);const total=list.reduce((s,p)=>s+p.price*cart[p.id],0);const qty=(id,d)=>setCart(x=>{const n={...x,[id]:Math.max(0,(x[id]||0)+d)};if(!n[id])delete n[id];return n});return <Layout><div className="page narrow"><div className="page-head"><h1>{t.cart}</h1></div>{list.length?<><div className="cart-list">{list.map(p=><div className="cart-item" key={p.id}><img src={p.image}/><Link to={`/product/${p.id}`}><b>{p.title[lang]}</b><span>${p.price.toFixed(2)}</span></Link><div className="qty"><button onClick={()=>qty(p.id,-1)}><Minus/></button><b>{cart[p.id]}</b><button onClick={()=>qty(p.id,1)}>+</button></div><button className="trash" onClick={()=>qty(p.id,-cart[p.id])}><Trash2/></button></div>)}</div><div className="summary"><span>{t.total}</span><strong>${total.toFixed(2)}</strong><button className="button" onClick={()=>nav('/checkout')}>{t.checkout}</button></div></>:<Empty/>}</div></Layout>}
-function Checkout(){const {cart,setCart,user,orders,setOrders,t}=useStore();const nav=useNavigate();const total=products.reduce((s,p)=>s+(cart[p.id]||0)*p.price,0);const submit=e=>{e.preventDefault();const order={id:`RV-${Date.now().toString().slice(-6)}`,created:new Date().toISOString(),items:cart,total,status:'new'};setOrders([order,...orders]);setCart({});nav('/success')};return <Layout><div className="page narrow"><div className="page-head"><h1>{t.checkout}</h1></div><form className="form-card" onSubmit={submit}><input required placeholder={t.name} defaultValue={user?.name}/><input required type="email" placeholder={t.email} defaultValue={user?.email}/><input required placeholder="Телефон / Phone"/><input required placeholder="Адрес доставки / Delivery address"/><textarea placeholder="Комментарий / Comment"/><div className="summary inline"><span>{t.total}</span><strong>${total.toFixed(2)}</strong><button className="button" disabled={!total}>{t.checkout}</button></div></form></div></Layout>}
-function Success(){const {t}=useStore();return <Layout><div className="empty success"><Check/><h1>{t.orderDone}</h1><p>{t.orderText}</p><Link className="button" to="/catalog">{t.shop}</Link></div></Layout>}
-function Auth(){const {t,setUser}=useStore();const nav=useNavigate();const [mode,setMode]=useState('login');const submit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);setUser({name:fd.get('name')||'Coffee lover',email:fd.get('email'),role:fd.get('email')==='admin@revo.coffee'?'admin':'customer'});nav('/account')};return <Layout><div className="auth-page"><div className="auth-art"><img src={asset('raw-10.png')} alt="REVO lifestyle"/></div><form onSubmit={submit} className="auth-card"><span>REVO ACCOUNT</span><h1>{mode==='login'?t.login:t.register}</h1>{mode==='register'&&<input name="name" required placeholder={t.name}/>}<input name="email" required type="email" placeholder={t.email}/><input name="password" required type="password" minLength="6" placeholder={t.password}/><button className="button">{mode==='login'?t.login:t.register}</button><button type="button" className="text-btn" onClick={()=>setMode(mode==='login'?'register':'login')}>{mode==='login'?t.register:t.login}</button></form></div></Layout>}
-function Account(){const {user,setUser,orders,t}=useStore();if(!user)return <Auth/>;return <Layout><div className="page narrow"><div className="profile-head"><div><span>REVO MEMBER</span><h1>{user.name}</h1><p>{user.email}</p></div><button className="outline" onClick={()=>setUser(null)}>{t.logout}</button></div><h2>{t.orders}</h2><div className="orders">{orders.length?orders.map(o=><div key={o.id}><b>{o.id}</b><span>{new Date(o.created).toLocaleDateString()}</span><strong>${o.total.toFixed(2)}</strong><em>{o.status}</em></div>):<p>{t.empty}</p>}</div>{user.role==='admin'&&<Link className="button" to="/admin">{t.admin}</Link>}</div></Layout>}
-function Support(){const {user,t,flash}=useStore();const submit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget);const messages=read('revo-support',[]);localStorage.setItem('revo-support',JSON.stringify([{id:Date.now(),name:fd.get('name'),email:fd.get('email'),text:fd.get('text'),status:'new'},...messages]));e.currentTarget.reset();flash(t.lang==='EN'?'Сообщение отправлено':'Message sent')};return <Layout><div className="page narrow"><div className="page-head"><h1>{t.support}</h1></div><form className="form-card" onSubmit={submit}><input name="name" required placeholder={t.name} defaultValue={user?.name}/><input name="email" required type="email" placeholder={t.email} defaultValue={user?.email}/><textarea name="text" required placeholder={t.write}/><button className="button">{t.send}</button></form></div></Layout>}
-function Admin(){const {lang,t,orders,setOrders,flash}=useStore();const ui=lang==='ru'?{overview:'Обзор',store:'Открыть магазин',revenue:'Выручка',newOrders:'Новые заказы',orderSummary:'Состояние заказов',new:'Новый',work:'В работе',done:'Завершён',answered:'Отвечено',reply:'Ответить',replyPlaceholder:'Напишите ответ клиенту',sendReply:'Отправить ответ',saved:'Изменения сохранены',stockSaved:'Остаток сохранён',replySaved:'Ответ сохранён',noData:'Данных пока нет'}:{overview:'Overview',store:'Open store',revenue:'Revenue',newOrders:'New orders',orderSummary:'Order status',new:'New',work:'In progress',done:'Completed',answered:'Answered',reply:'Reply',replyPlaceholder:'Write a reply to the customer',sendReply:'Send reply',saved:'Changes saved',stockSaved:'Stock saved',replySaved:'Reply saved',noData:'No data yet'};const [tab,setTab]=useState('overview');const defaultStock=Object.fromEntries(products.map(p=>[p.id,p.stock]));const [stock,setStock]=useState(()=>read('revo-stock',defaultStock));const [messages,setMessages]=useState(()=>read('revo-support',[]));const [drafts,setDrafts]=useState({});const totalStock=Object.values(stock).reduce((a,b)=>a+Number(b||0),0);const revenue=orders.reduce((sum,o)=>sum+Number(o.total||0),0);const newOrders=orders.filter(o=>o.status==='new').length;const saveStock=id=>{const clean={...stock,[id]:Math.max(0,Number(stock[id])||0)};setStock(clean);localStorage.setItem('revo-stock',JSON.stringify(clean));flash(ui.stockSaved)};const updateOrder=(id,status)=>{setOrders(orders.map(o=>o.id===id?{...o,status}:o));flash(ui.saved)};const sendReply=id=>{const text=(drafts[id]||'').trim();if(!text)return;const next=messages.map(m=>m.id===id?{...m,reply:text,status:'answered',repliedAt:new Date().toISOString()}:m);setMessages(next);localStorage.setItem('revo-support',JSON.stringify(next));setDrafts(current=>({...current,[id]:''}));flash(ui.replySaved)};const tabs=[['overview',ui.overview],['products',t.products],['orders',t.orders],['messages',t.messages]];return <Layout><div className="admin"><div className="admin-top"><div><span>REVO CONTROL</span><h1>{t.admin}</h1></div><Link className="outline" to="/">{ui.store}</Link></div><div className="admin-tabs">{tabs.map(x=><button type="button" className={tab===x[0]?'active':''} onClick={()=>setTab(x[0])} key={x[0]}>{x[1]}{x[0]==='orders'&&newOrders>0?<b>{newOrders}</b>:null}{x[0]==='messages'&&messages.filter(m=>m.status!=='answered').length>0?<b>{messages.filter(m=>m.status!=='answered').length}</b>:null}</button>)}</div>{tab==='overview'&&<><div className="stats"><div><span>{t.products}</span><b>{products.length}</b></div><div><span>{t.stock}</span><b>{totalStock}</b></div><div><span>{ui.newOrders}</span><b>{newOrders}</b></div><div><span>{ui.revenue}</span><b>${revenue.toFixed(2)}</b></div></div><div className="admin-block order-summary"><div><h2>{ui.orderSummary}</h2><p>REVO Dashboard</p></div><div><span>{ui.new}<b>{orders.filter(o=>o.status==='new').length}</b></span><span>{ui.work}<b>{orders.filter(o=>o.status==='work').length}</b></span><span>{ui.done}<b>{orders.filter(o=>o.status==='done').length}</b></span></div></div></>}{tab==='products'&&<div className="stock-list">{products.map(p=><div key={p.id}><img src={p.image} alt=""/><div className="stock-name"><b>{p.title[lang]}</b><small>${p.price.toFixed(2)}</small></div><label>{t.stock}<input min="0" type="number" value={stock[p.id]??0} onChange={e=>setStock({...stock,[p.id]:e.target.value})}/></label><button type="button" className="button small" onClick={()=>saveStock(p.id)}>{t.save}</button></div>)}</div>}{tab==='orders'&&<div className="admin-block admin-list">{orders.length?orders.map(o=><div className="admin-row order-row" key={o.id}><div><b>{o.id}</b><small>{new Date(o.created).toLocaleDateString(lang==='ru'?'ru-RU':'en-US')}</small></div><span>${Number(o.total).toFixed(2)}</span><select aria-label={t.status} value={o.status} onChange={e=>updateOrder(o.id,e.target.value)}><option value="new">{ui.new}</option><option value="work">{ui.work}</option><option value="done">{ui.done}</option></select></div>):<p>{ui.noData}</p>}</div>}{tab==='messages'&&<div className="admin-block admin-list">{messages.length?messages.map(m=><div className="message support-message" key={m.id}><div className="message-head"><b>{m.name}</b><span className={`status ${m.status==='answered'?'answered':'new'}`}>{m.status==='answered'?ui.answered:ui.new}</span></div><a href={`mailto:${m.email}`}>{m.email}</a><p>{m.text}</p>{m.reply&&<div className="saved-reply"><b>{ui.reply}</b><p>{m.reply}</p></div>}<div className="reply-box"><textarea value={drafts[m.id]||''} onChange={e=>setDrafts({...drafts,[m.id]:e.target.value})} placeholder={ui.replyPlaceholder}/><button type="button" className="button small" disabled={!(drafts[m.id]||'').trim()} onClick={()=>sendReply(m.id)}>{ui.sendReply}</button></div></div>):<p>{ui.noData}</p>}</div>}</div></Layout>}
-
-function App(){return <Routes><Route path="/" element={<Home/>}/><Route path="/catalog" element={<Catalog/>}/><Route path="/product/:id" element={<Product/>}/><Route path="/favorites" element={<Favorites/>}/><Route path="/cart" element={<Cart/>}/><Route path="/checkout" element={<Checkout/>}/><Route path="/success" element={<Success/>}/><Route path="/auth" element={<Auth/>}/><Route path="/account" element={<Account/>}/><Route path="/orders" element={<Account/>}/><Route path="/support" element={<Support/>}/><Route path="/admin" element={<Admin/>}/><Route path="*" element={<Home/>}/></Routes>}
-ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><HashRouter><Provider><App/></Provider></HashRouter></React.StrictMode>)
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/catalog" element={<Catalog />} />
+      <Route path="/product/:id" element={<Product />} />
+      <Route path="/favorites" element={<Favorites />} />
+      <Route path="/cart" element={<Cart />} />
+      <Route path="/checkout" element={<Checkout />} />
+      <Route path="/success" element={<Success />} />
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/account" element={<Account />} />
+      <Route path="/orders" element={<Account />} />
+      <Route path="/support" element={<Support />} />
+      <Route path="/admin" element={<Admin />} />
+      <Route path="*" element={<Home />} />
+    </Routes>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <HashRouter>
+      <Provider>
+        <App />
+      </Provider>
+    </HashRouter>
+  </React.StrictMode>,
+);
