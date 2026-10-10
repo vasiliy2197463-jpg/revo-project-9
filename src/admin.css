@@ -1,3 +1,8 @@
+.admin-tabs {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.admin-tabs::-webkit-scrollbar { display: none; }
 .admin-tabs button { position: relative; }
 .admin-tabs button b {
   display: inline-grid;
