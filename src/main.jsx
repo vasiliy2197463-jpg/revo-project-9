@@ -1034,32 +1034,77 @@ function Account() {
   );
 }
 function Support() {
-  const { user, t, flash } = useStore();
+  const { user, lang, t, flash } = useStore();
+  const [messages, setMessages] = useState(() => read("revo-support", []));
+  const [contactEmail, setContactEmail] = useState(
+    () => user?.email || localStorage.getItem("revo-support-email") || "",
+  );
+  const ui =
+    lang === "ru"
+      ? {
+          intro: "Напишите нам — обращение появится в админ-панели.",
+          subject: "Тема обращения",
+          message: "Опишите вопрос или проблему",
+          history: "Мои обращения",
+          new: "Новое",
+          answered: "Отвечено",
+          answer: "Ответ поддержки",
+          sent: "Обращение отправлено",
+          empty: "Вы ещё не отправляли обращений с этой почты.",
+        }
+      : {
+          intro: "Write to us — your request will appear in the admin panel.",
+          subject: "Request subject",
+          message: "Describe your question or problem",
+          history: "My requests",
+          new: "New",
+          answered: "Answered",
+          answer: "Support reply",
+          sent: "Request sent",
+          empty: "You have not sent any requests from this email yet.",
+        };
+  useEffect(() => {
+    const syncMessages = (event) => {
+      if (event.key === "revo-support") setMessages(read("revo-support", []));
+    };
+    window.addEventListener("storage", syncMessages);
+    return () => window.removeEventListener("storage", syncMessages);
+  }, []);
   const submit = (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const messages = read("revo-support", []);
-    localStorage.setItem(
-      "revo-support",
-      JSON.stringify([
-        {
-          id: Date.now(),
-          name: fd.get("name"),
-          email: fd.get("email"),
-          text: fd.get("text"),
-          status: "new",
-        },
-        ...messages,
-      ]),
-    );
+    const email = String(fd.get("email") || "").trim();
+    const next = [
+      {
+        id: Date.now(),
+        name: fd.get("name"),
+        email,
+        subject: fd.get("subject"),
+        text: fd.get("text"),
+        status: "new",
+        createdAt: new Date().toISOString(),
+      },
+      ...messages,
+    ];
+    setMessages(next);
+    setContactEmail(email);
+    localStorage.setItem("revo-support", JSON.stringify(next));
+    localStorage.setItem("revo-support-email", email);
     e.currentTarget.reset();
-    flash(t.lang === "EN" ? "Сообщение отправлено" : "Message sent");
+    flash(ui.sent);
   };
+  const ownMessages = messages.filter(
+    (message) => normalizeEmail(message.email) === normalizeEmail(contactEmail),
+  );
   return (
     <Layout>
       <div className="page narrow">
         <div className="page-head">
-          <h1>{t.support}</h1>
+          <div>
+            <span>REVO CARE</span>
+            <h1>{t.support}</h1>
+            <p>{ui.intro}</p>
+          </div>
         </div>
         <form className="form-card" onSubmit={submit}>
           <input
@@ -1073,11 +1118,50 @@ function Support() {
             required
             type="email"
             placeholder={t.email}
-            defaultValue={user?.email}
+            value={contactEmail}
+            onChange={(event) => setContactEmail(event.target.value)}
           />
-          <textarea name="text" required placeholder={t.write} />
+          <input name="subject" required placeholder={ui.subject} />
+          <textarea name="text" required placeholder={ui.message} />
           <button className="button">{t.send}</button>
         </form>
+        <section className="support-history">
+          <h2>{ui.history}</h2>
+          {ownMessages.length ? (
+            <div className="support-thread-list">
+              {ownMessages.map((message) => (
+                <article className="support-ticket" key={message.id}>
+                  <div className="message-head">
+                    <div>
+                      <b>{message.subject || t.support}</b>
+                      <small>
+                        {message.createdAt
+                          ? new Date(message.createdAt).toLocaleString(
+                              lang === "ru" ? "ru-RU" : "en-US",
+                            )
+                          : ""}
+                      </small>
+                    </div>
+                    <span
+                      className={`status ${message.status === "answered" ? "answered" : "new"}`}
+                    >
+                      {message.status === "answered" ? ui.answered : ui.new}
+                    </span>
+                  </div>
+                  <p>{message.text}</p>
+                  {message.reply && (
+                    <div className="customer-reply">
+                      <b>{ui.answer}</b>
+                      <p>{message.reply}</p>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="support-empty">{ui.empty}</p>
+          )}
+        </section>
       </div>
     </Layout>
   );
@@ -1162,6 +1246,13 @@ function AdminDashboard() {
   const [messages, setMessages] = useState(() => read("revo-support", []));
   const [drafts, setDrafts] = useState({});
   const [reviewVersion, setReviewVersion] = useState(0);
+  useEffect(() => {
+    const syncMessages = (event) => {
+      if (event.key === "revo-support") setMessages(read("revo-support", []));
+    };
+    window.addEventListener("storage", syncMessages);
+    return () => window.removeEventListener("storage", syncMessages);
+  }, []);
   const reviews = products.flatMap((product) =>
     read(`revo-reviews-${product.id}`, []).map((review, reviewIndex) => ({
       ...review,
@@ -1451,6 +1542,14 @@ function AdminDashboard() {
                     </span>
                   </div>
                   <a href={`mailto:${m.email}`}>{m.email}</a>
+                  {m.subject && <h3>{m.subject}</h3>}
+                  {m.createdAt && (
+                    <small>
+                      {new Date(m.createdAt).toLocaleString(
+                        lang === "ru" ? "ru-RU" : "en-US",
+                      )}
+                    </small>
+                  )}
                   <p>{m.text}</p>
                   {m.reply && (
                     <div className="saved-reply">
