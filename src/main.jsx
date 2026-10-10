@@ -9,6 +9,7 @@ import ReactDOM from "react-dom/client";
 import {
   HashRouter,
   Link,
+  Navigate,
   NavLink,
   Route,
   Routes,
@@ -34,7 +35,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { products } from "./data/products";
+import { products as baseProducts } from "./data/products";
 import "./styles.css";
 import "./quantity.css";
 import "./mobile.css";
@@ -172,6 +173,9 @@ function Provider({ children }) {
   );
   const [cart, setCart] = useState(() => read("revo-cart", {}));
   const [favs, setFavs] = useState(() => read("revo-favs", []));
+  const [customProducts, setCustomProducts] = useState(() =>
+    read("revo-custom-products", []),
+  );
   const [user, setUser] = useState(() =>
     withAccountRole(read("revo-user", null)),
   );
@@ -186,6 +190,9 @@ function Provider({ children }) {
   useEffect(() => {
     localStorage.setItem("revo-favs", JSON.stringify(favs));
   }, [favs]);
+  useEffect(() => {
+    localStorage.setItem("revo-custom-products", JSON.stringify(customProducts));
+  }, [customProducts]);
   useEffect(() => {
     localStorage.setItem("revo-user", JSON.stringify(user));
   }, [user]);
@@ -213,6 +220,9 @@ function Provider({ children }) {
         favs,
         toggleFav,
         add,
+        products: [...baseProducts, ...customProducts],
+        addProduct: (product) =>
+          setCustomProducts((current) => [product, ...current]),
         user,
         setUser,
         orders,
@@ -470,7 +480,7 @@ function SectionTitle({ eyebrow, title }) {
   );
 }
 function Home() {
-  const { t } = useStore();
+  const { t, products } = useStore();
   return (
     <Layout>
       <Hero />
@@ -551,7 +561,7 @@ function ProductRail({ items, eyebrow, title }) {
   );
 }
 function GiftSection() {
-  const { lang, t, add } = useStore();
+  const { lang, t, add, products } = useStore();
   const p = products.find((x) => x.id === "giftset");
   return (
     <section className="gift-section">
@@ -582,7 +592,7 @@ function GiftSection() {
 }
 
 function Catalog() {
-  const { t } = useStore();
+  const { t, products } = useStore();
   const loc = useLocation();
   const qs = new URLSearchParams(loc.search);
   const [q, setQ] = useState(qs.get("q") || "");
@@ -623,7 +633,7 @@ function Catalog() {
 }
 function Product() {
   const { id } = useParams();
-  const { lang, t, favs, toggleFav } = useStore();
+  const { lang, t, favs, toggleFav, products } = useStore();
   const p = products.find((x) => x.id === id);
   const [active, setActive] = useState(0);
   const touchStart = useRef(null);
@@ -782,7 +792,7 @@ function Empty() {
   );
 }
 function Favorites() {
-  const { favs, t } = useStore();
+  const { favs, t, products } = useStore();
   const list = products.filter((p) => favs.includes(p.id));
   return (
     <Layout>
@@ -804,7 +814,7 @@ function Favorites() {
   );
 }
 function Cart() {
-  const { cart, setCart, lang, t } = useStore();
+  const { cart, setCart, lang, t, products } = useStore();
   const nav = useNavigate();
   const list = products.filter((p) => cart[p.id]);
   const total = list.reduce((s, p) => s + p.price * cart[p.id], 0);
@@ -862,7 +872,7 @@ function Cart() {
   );
 }
 function Checkout() {
-  const { cart, setCart, user, orders, setOrders, t } = useStore();
+  const { cart, setCart, user, orders, setOrders, t, products } = useStore();
   const nav = useNavigate();
   const total = products.reduce((s, p) => s + (cart[p.id] || 0) * p.price, 0);
   const submit = (e) => {
@@ -1061,7 +1071,11 @@ function Support() {
   );
 }
 function Admin() {
-  const { lang, t, orders, setOrders, flash } = useStore();
+  const { user } = useStore();
+  return user?.role === "admin" ? <AdminDashboard /> : <Navigate to="/auth" replace />;
+}
+function AdminDashboard() {
+  const { lang, t, orders, setOrders, flash, products, addProduct } = useStore();
   const ui =
     lang === "ru"
       ? {
@@ -1083,6 +1097,18 @@ function Admin() {
           reviews: "Отзывы",
           deleteReview: "Удалить отзыв",
           reviewDeleted: "Отзыв удалён",
+          createProduct: "Создать товар",
+          newProduct: "Новый товар",
+          titleRu: "Название на русском",
+          titleEn: "Название на английском",
+          descriptionRu: "Описание на русском",
+          descriptionEn: "Описание на английском",
+          imageUrl: "Ссылка на изображение",
+          imageFile: "Или загрузите фото",
+          imageTooLarge: "Изображение должно быть меньше 1,5 МБ",
+          category: "Категория",
+          price: "Цена",
+          productCreated: "Товар создан и добавлен в каталог",
           noData: "Данных пока нет",
         }
       : {
@@ -1104,6 +1130,18 @@ function Admin() {
           reviews: "Reviews",
           deleteReview: "Delete review",
           reviewDeleted: "Review deleted",
+          createProduct: "Create product",
+          newProduct: "New product",
+          titleRu: "Russian title",
+          titleEn: "English title",
+          descriptionRu: "Russian description",
+          descriptionEn: "English description",
+          imageUrl: "Image URL",
+          imageFile: "Or upload a photo",
+          imageTooLarge: "The image must be smaller than 1.5 MB",
+          category: "Category",
+          price: "Price",
+          productCreated: "Product created and added to the catalog",
           noData: "No data yet",
         };
   const [tab, setTab] = useState("overview");
@@ -1130,6 +1168,49 @@ function Admin() {
     setStock(clean);
     localStorage.setItem("revo-stock", JSON.stringify(clean));
     flash(ui.stockSaved);
+  };
+  const createProduct = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const file = data.get("imageFile");
+    if (file instanceof File && file.size > 1_500_000) {
+      flash(ui.imageTooLarge);
+      return;
+    }
+    let image = String(data.get("image") || "").trim();
+    if (file instanceof File && file.size) {
+      image = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+    image ||= asset("raw-03.png");
+    const product = {
+      id: `custom-${Date.now()}`,
+      image,
+      gallery: [image],
+      price: Math.max(0, Number(data.get("price")) || 0),
+      rating: 5,
+      stock: Math.max(0, Number(data.get("stock")) || 0),
+      roast: data.get("category") || "medium",
+      title: {
+        ru: String(data.get("titleRu") || "").trim(),
+        en: String(data.get("titleEn") || "").trim(),
+      },
+      note: {
+        ru: String(data.get("descriptionRu") || "").trim(),
+        en: String(data.get("descriptionEn") || "").trim(),
+      },
+    };
+    addProduct(product);
+    const nextStock = { ...stock, [product.id]: product.stock };
+    setStock(nextStock);
+    localStorage.setItem("revo-stock", JSON.stringify(nextStock));
+    form.reset();
+    flash(ui.productCreated);
   };
   const updateOrder = (id, status) => {
     setOrders(orders.map((o) => (o.id === id ? { ...o, status } : o)));
@@ -1243,34 +1324,75 @@ function Admin() {
           </>
         )}
         {tab === "products" && (
-          <div className="stock-list">
-            {products.map((p) => (
-              <div key={p.id}>
-                <img src={p.image} alt="" />
-                <div className="stock-name">
-                  <b>{p.title[lang]}</b>
-                  <small>${p.price.toFixed(2)}</small>
+          <div className="product-admin">
+            <form className="admin-block create-product" onSubmit={createProduct}>
+              <div className="create-product-head">
+                <div>
+                  <span>REVO CATALOG</span>
+                  <h2>{ui.newProduct}</h2>
                 </div>
-                <label>
-                  {t.stock}
-                  <input
-                    min="0"
-                    type="number"
-                    value={stock[p.id] ?? 0}
-                    onChange={(e) =>
-                      setStock({ ...stock, [p.id]: e.target.value })
-                    }
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="button small"
-                  onClick={() => saveStock(p.id)}
-                >
-                  {t.save}
+                <button className="button" type="submit">
+                  {ui.createProduct}
                 </button>
               </div>
-            ))}
+              <div className="create-product-fields">
+                <input name="titleRu" required placeholder={ui.titleRu} />
+                <input name="titleEn" required placeholder={ui.titleEn} />
+                <textarea
+                  name="descriptionRu"
+                  required
+                  placeholder={ui.descriptionRu}
+                />
+                <textarea
+                  name="descriptionEn"
+                  required
+                  placeholder={ui.descriptionEn}
+                />
+                <input name="price" required min="0" step="0.01" type="number" placeholder={ui.price} />
+                <input name="stock" required min="0" step="1" type="number" placeholder={t.stock} />
+                <select name="category" aria-label={ui.category} defaultValue="medium">
+                  <option value="medium">Medium</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                  <option value="gift">Gift</option>
+                  <option value="combo">Combo</option>
+                </select>
+                <input name="image" type="url" placeholder={ui.imageUrl} />
+                <label className="product-file">
+                  <span>{ui.imageFile}</span>
+                  <input name="imageFile" type="file" accept="image/*" />
+                </label>
+              </div>
+            </form>
+            <div className="stock-list">
+              {products.map((p) => (
+                <div key={p.id}>
+                  <img src={p.image} alt="" />
+                  <div className="stock-name">
+                    <b>{p.title[lang]}</b>
+                    <small>${p.price.toFixed(2)}</small>
+                  </div>
+                  <label>
+                    {t.stock}
+                    <input
+                      min="0"
+                      type="number"
+                      value={stock[p.id] ?? 0}
+                      onChange={(e) =>
+                        setStock({ ...stock, [p.id]: e.target.value })
+                      }
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="button small"
+                    onClick={() => saveStock(p.id)}
+                  >
+                    {t.save}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         {tab === "orders" && (
