@@ -358,7 +358,6 @@ function Footer() {
         <Link to="/catalog">{t.catalog}</Link>
         <Link to="/account">{t.account}</Link>
         <Link to="/support">{t.support}</Link>
-        <Link to="/admin">{t.admin}</Link>
       </div>
       <small>© 2026 REVO · Project №9</small>
     </footer>
