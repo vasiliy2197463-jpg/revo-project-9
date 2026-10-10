@@ -42,6 +42,19 @@ import "./admin.css";
 
 const asset = (name) => `${import.meta.env.BASE_URL}assets/revo/${name}`;
 
+const ADMIN_EMAILS = ["vasiliy2197463@gmail.com", "admin@revo.coffee"];
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+const withAccountRole = (user) =>
+  user
+    ? {
+        ...user,
+        email: String(user.email || "").trim(),
+        role: ADMIN_EMAILS.includes(normalizeEmail(user.email))
+          ? "admin"
+          : user.role || "customer",
+      }
+    : null;
+
 const copy = {
   ru: {
     catalog: "Каталог",
@@ -159,7 +172,9 @@ function Provider({ children }) {
   );
   const [cart, setCart] = useState(() => read("revo-cart", {}));
   const [favs, setFavs] = useState(() => read("revo-favs", []));
-  const [user, setUser] = useState(() => read("revo-user", null));
+  const [user, setUser] = useState(() =>
+    withAccountRole(read("revo-user", null)),
+  );
   const [orders, setOrders] = useState(() => read("revo-orders", []));
   const [toast, setToast] = useState("");
   useEffect(() => {
@@ -915,11 +930,11 @@ function Auth() {
   const submit = (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    setUser({
+    setUser(withAccountRole({
       name: fd.get("name") || "Coffee lover",
       email: fd.get("email"),
-      role: fd.get("email") === "admin@revo.coffee" ? "admin" : "customer",
-    });
+      role: "customer",
+    }));
     nav("/account");
   };
   return (
