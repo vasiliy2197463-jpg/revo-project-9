@@ -247,6 +247,12 @@ function Header() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const nav = useNavigate();
+  const location = useLocation();
+  const activeCatalogType = new URLSearchParams(location.search).get("type");
+  const catalogClass = (type = null) =>
+    location.pathname === "/catalog" && activeCatalogType === type
+      ? "active"
+      : undefined;
   const go = (e) => {
     e.preventDefault();
     if (q.trim()) nav(`/catalog?q=${encodeURIComponent(q)}`);
@@ -261,9 +267,15 @@ function Header() {
           className={open ? "nav open" : "nav"}
           onClick={() => setOpen(false)}
         >
-          <NavLink to="/catalog">{t.catalog}</NavLink>
-          <NavLink to="/catalog?type=gift">{t.gift}</NavLink>
-          <NavLink to="/catalog?type=combo">{t.combo}</NavLink>
+          <Link className={catalogClass()} to="/catalog">
+            {t.catalog}
+          </Link>
+          <Link className={catalogClass("gift")} to="/catalog?type=gift">
+            {t.gift}
+          </Link>
+          <Link className={catalogClass("combo")} to="/catalog?type=combo">
+            {t.combo}
+          </Link>
           <NavLink to="/support">{t.support}</NavLink>
         </nav>
         <div className="head-actions">
