@@ -197,6 +197,22 @@ const normalizeSearch = (value) =>
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/ё/g, "е")
     .trim();
+const messageKey = (message) =>
+  `${message.sender}:${message.createdAt || ""}:${message.text || ""}`;
+const addAdminUnread = () => {
+  const next = Number(localStorage.getItem("revo-admin-unread") || 0) + 1;
+  localStorage.setItem("revo-admin-unread", String(next));
+};
+const addCustomerUnread = (email) => {
+  const key = normalizeEmail(email);
+  if (!key) return;
+  const unread = read("revo-customer-unread", {});
+  localStorage.setItem(
+    "revo-customer-unread",
+    JSON.stringify({ ...unread, [key]: Number(unread[key] || 0) + 1 }),
+  );
+  window.dispatchEvent(new Event("revo-notifications"));
+};
 function Provider({ children }) {
   const [lang, setLang] = useState(
     () => localStorage.getItem("revo-lang") || "ru",
@@ -298,9 +314,26 @@ function Header() {
   const { lang, setLang, t, cart, favs, user } = useStore();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [supportUnread, setSupportUnread] = useState(0);
   const nav = useNavigate();
   const location = useLocation();
   const activeCatalogType = new URLSearchParams(location.search).get("type");
+  useEffect(() => {
+    const updateSupportUnread = () => {
+      const email = normalizeEmail(
+        user?.email || localStorage.getItem("revo-support-email"),
+      );
+      const unread = read("revo-customer-unread", {});
+      setSupportUnread(Number(unread[email] || 0));
+    };
+    updateSupportUnread();
+    window.addEventListener("storage", updateSupportUnread);
+    window.addEventListener("revo-notifications", updateSupportUnread);
+    return () => {
+      window.removeEventListener("storage", updateSupportUnread);
+      window.removeEventListener("revo-notifications", updateSupportUnread);
+    };
+  }, [user?.email]);
   const catalogClass = (type = null) =>
     location.pathname === "/catalog" && activeCatalogType === type
       ? "active"
@@ -328,7 +361,12 @@ function Header() {
           <Link className={catalogClass("combo")} to="/catalog?type=combo">
             {t.combo}
           </Link>
-          <NavLink to="/support">{t.support}</NavLink>
+          <NavLink className="support-nav-link" to="/support">
+            {t.support}
+            {supportUnread > 0 && (
+              <b className="support-unread">{supportUnread}</b>
+            )}
+          </NavLink>
         </nav>
         <div className="head-actions">
           <button
@@ -1117,6 +1155,7 @@ function Support() {
           deleteChat: "Удалить чат",
           confirmDeleteChat: "Удалить этот чат без возможности восстановления?",
           chatDeleted: "Чат удалён",
+          newSupportMessage: "Новое сообщение от поддержки",
           sent: "Обращение отправлено",
           empty: "Вы ещё не отправляли обращений с этой почты.",
         }
@@ -1137,16 +1176,57 @@ function Support() {
           deleteChat: "Delete chat",
           confirmDeleteChat: "Delete this chat permanently?",
           chatDeleted: "Chat deleted",
+          newSupportMessage: "New message from support",
           sent: "Request sent",
           empty: "You have not sent any requests from this email yet.",
         };
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   useEffect(() => {
     const syncMessages = (event) => {
-      if (event.key === "revo-support") setMessages(read("revo-support", []));
+      if (event.key !== "revo-support") return;
+      const next = read("revo-support", []);
+      const known = new Set(
+        messagesRef.current.flatMap(threadMessages).map(messageKey),
+      );
+      const hasIncoming = next
+        .filter(
+          (thread) =>
+            normalizeEmail(thread.email) === normalizeEmail(contactEmail),
+        )
+        .flatMap(threadMessages)
+        .some(
+          (message) =>
+            message.sender === "admin" && !known.has(messageKey(message)),
+        );
+      messagesRef.current = next;
+      setMessages(next);
+      if (hasIncoming) {
+        const email = normalizeEmail(contactEmail);
+        const unread = read("revo-customer-unread", {});
+        const remaining = { ...unread };
+        delete remaining[email];
+        localStorage.setItem("revo-customer-unread", JSON.stringify(remaining));
+        window.dispatchEvent(new Event("revo-notifications"));
+        flash(ui.newSupportMessage);
+      }
     };
     window.addEventListener("storage", syncMessages);
     return () => window.removeEventListener("storage", syncMessages);
-  }, []);
+  }, [contactEmail, flash, ui.newSupportMessage]);
+  useEffect(() => {
+    const email = normalizeEmail(contactEmail);
+    if (!email) return;
+    const unread = read("revo-customer-unread", {});
+    if (!Number(unread[email] || 0)) return;
+    const next = { ...unread };
+    delete next[email];
+    localStorage.setItem("revo-customer-unread", JSON.stringify(next));
+    window.dispatchEvent(new Event("revo-notifications"));
+    flash(ui.newSupportMessage);
+  }, [contactEmail, flash, ui.newSupportMessage]);
   const submit = (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -1168,6 +1248,7 @@ function Support() {
     ];
     setMessages(next);
     setContactEmail(email);
+    addAdminUnread();
     localStorage.setItem("revo-support", JSON.stringify(next));
     localStorage.setItem("revo-support-email", email);
     e.currentTarget.reset();
@@ -1192,6 +1273,7 @@ function Support() {
         : message,
     );
     setMessages(next);
+    addAdminUnread();
     localStorage.setItem("revo-support", JSON.stringify(next));
     form.reset();
     flash(ui.sent);
@@ -1391,6 +1473,7 @@ function AdminDashboard() {
           productDeleted: "Товар удалён",
           orderDeleted: "Заказ удалён",
           chatDeleted: "Чат удалён",
+          newCustomerMessage: "Новое сообщение от клиента",
           noData: "Данных пока нет",
         }
       : {
@@ -1435,6 +1518,7 @@ function AdminDashboard() {
           productDeleted: "Product deleted",
           orderDeleted: "Order deleted",
           chatDeleted: "Chat deleted",
+          newCustomerMessage: "New customer message",
           noData: "No data yet",
         };
   const [tab, setTab] = useState("overview");
@@ -1443,13 +1527,39 @@ function AdminDashboard() {
   const [messages, setMessages] = useState(() => read("revo-support", []));
   const [drafts, setDrafts] = useState({});
   const [reviewVersion, setReviewVersion] = useState(0);
+  const adminMessagesRef = useRef(messages);
+  useEffect(() => {
+    adminMessagesRef.current = messages;
+  }, [messages]);
   useEffect(() => {
     const syncMessages = (event) => {
-      if (event.key === "revo-support") setMessages(read("revo-support", []));
+      if (event.key !== "revo-support") return;
+      const next = read("revo-support", []);
+      const known = new Set(
+        adminMessagesRef.current.flatMap(threadMessages).map(messageKey),
+      );
+      const hasIncoming = next
+        .flatMap(threadMessages)
+        .some(
+          (message) =>
+            message.sender === "customer" && !known.has(messageKey(message)),
+        );
+      adminMessagesRef.current = next;
+      setMessages(next);
+      if (hasIncoming) {
+        localStorage.setItem("revo-admin-unread", "0");
+        flash(ui.newCustomerMessage);
+      }
     };
     window.addEventListener("storage", syncMessages);
     return () => window.removeEventListener("storage", syncMessages);
-  }, []);
+  }, [flash, ui.newCustomerMessage]);
+  useEffect(() => {
+    const unread = Number(localStorage.getItem("revo-admin-unread") || 0);
+    if (!unread) return;
+    localStorage.setItem("revo-admin-unread", "0");
+    flash(ui.newCustomerMessage);
+  }, [flash, ui.newCustomerMessage]);
   const reviews = products.flatMap((product) =>
     read(`revo-reviews-${product.id}`, []).map((review, reviewIndex) => ({
       ...review,
@@ -1535,6 +1645,7 @@ function AdminDashboard() {
         : m,
     );
     setMessages(next);
+    addCustomerUnread(messages.find((message) => message.id === id)?.email);
     localStorage.setItem("revo-support", JSON.stringify(next));
     setDrafts((current) => ({ ...current, [id]: "" }));
     flash(ui.replySaved);

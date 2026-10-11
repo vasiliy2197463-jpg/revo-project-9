@@ -2,6 +2,8 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+.support-nav-link { display: inline-flex; align-items: center; gap: 7px; }
+.support-unread { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 20px; background: var(--gold); color: #fff; font-size: 11px; }
 .admin-tabs::-webkit-scrollbar { display: none; }
 .admin-tabs button { position: relative; }
 .admin-tabs button b {
