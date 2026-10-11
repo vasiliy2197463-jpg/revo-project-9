@@ -26,9 +26,11 @@ import {
   Heart,
   Leaf,
   Menu,
+  MessageCircle,
   Minus,
   Package,
   Search,
+  Send,
   ShoppingBag,
   Star,
   Trash2,
@@ -1100,6 +1102,8 @@ function Support() {
     lang === "ru"
       ? {
           intro: "Напишите нам — обращение появится в админ-панели.",
+          newRequest: "Новое обращение",
+          responseTime: "Обычно отвечаем в течение рабочего дня",
           subject: "Тема обращения",
           message: "Опишите вопрос или проблему",
           history: "Мои обращения",
@@ -1118,6 +1122,8 @@ function Support() {
         }
       : {
           intro: "Write to us — your request will appear in the admin panel.",
+          newRequest: "New request",
+          responseTime: "We usually reply within one business day",
           subject: "Request subject",
           message: "Describe your question or problem",
           history: "My requests",
@@ -1210,27 +1216,46 @@ function Support() {
             <p>{ui.intro}</p>
           </div>
         </div>
-        <form className="form-card" onSubmit={submit}>
-          <input
-            name="name"
-            required
-            placeholder={t.name}
-            defaultValue={user?.name}
-          />
-          <input
-            name="email"
-            required
-            type="email"
-            placeholder={t.email}
-            value={contactEmail}
-            onChange={(event) => setContactEmail(event.target.value)}
-          />
-          <input name="subject" required placeholder={ui.subject} />
-          <textarea name="text" required placeholder={ui.message} />
-          <button className="button">{t.send}</button>
+        <form className="form-card support-form" onSubmit={submit}>
+          <div className="support-form-head">
+            <span className="support-form-icon"><MessageCircle /></span>
+            <div>
+              <h2>{ui.newRequest}</h2>
+              <p>{ui.responseTime}</p>
+            </div>
+          </div>
+          <div className="support-form-grid">
+            <label>
+              <span>{t.name}</span>
+              <input name="name" required placeholder={t.name} defaultValue={user?.name} />
+            </label>
+            <label>
+              <span>{t.email}</span>
+              <input
+                name="email"
+                required
+                type="email"
+                placeholder={t.email}
+                value={contactEmail}
+                onChange={(event) => setContactEmail(event.target.value)}
+              />
+            </label>
+            <label className="support-form-wide">
+              <span>{ui.subject}</span>
+              <input name="subject" required placeholder={ui.subject} />
+            </label>
+            <label className="support-form-wide">
+              <span>{ui.message}</span>
+              <textarea name="text" required placeholder={ui.message} />
+            </label>
+          </div>
+          <button className="button support-submit"><Send />{t.send}</button>
         </form>
         <section className="support-history">
-          <h2>{ui.history}</h2>
+          <div className="support-history-head">
+            <div><span>REVO DIALOG</span><h2>{ui.history}</h2></div>
+            <b>{ownMessages.length}</b>
+          </div>
           {ownMessages.length ? (
             <div className="support-thread-list">
               {ownMessages.map((message) => (
@@ -1294,13 +1319,13 @@ function Support() {
                       required
                       placeholder={ui.chatPlaceholder}
                     />
-                    <button className="button small">{ui.sendToChat}</button>
+                    <button className="button small"><Send />{ui.sendToChat}</button>
                   </form>
                 </article>
               ))}
             </div>
           ) : (
-            <p className="support-empty">{ui.empty}</p>
+            <div className="support-empty"><MessageCircle /><p>{ui.empty}</p></div>
           )}
         </section>
       </div>
