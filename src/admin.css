@@ -30,12 +30,14 @@
 .order-summary span b { color: var(--ink); font: 800 30px Montserrat; }
 .stock-name { display: grid; gap: 5px; }
 .stock-name small { color: var(--gold); font-weight: 800; }
+.stock-list > div { grid-template-columns: 70px minmax(0, 1fr) auto auto auto; }
 .stock-list input, .admin-row select { border: 1px solid #dce0e5; border-radius: 0; background: #fff; }
 .admin-list { display: grid; gap: 12px; }
 .admin-list .admin-row, .admin-list .message { border: 1px solid #e5e8eb; }
 .order-row > div { display: grid; gap: 5px; }
 .order-row small { color: #77818d; }
 .message-head { display: flex; justify-content: space-between; gap: 15px; align-items: center; }
+.ticket-actions { display: flex; align-items: center; gap: 8px; }
 .support-message > a { color: var(--gold); font-weight: 700; }
 .status { padding: 6px 10px; border-radius: 20px; font-size: 12px; font-weight: 800; }
 .status.new { background: #fff3d7; color: #8b651f; }
@@ -51,6 +53,8 @@
 .admin-review-copy small { color: #77818d; }
 .delete-review { display: inline-flex; align-items: center; gap: 8px; padding: 11px 14px; border: 1px solid #e7c4c4; background: #fff5f5; color: #b23e3e; font-weight: 800; }
 .delete-review svg { width: 18px; }
+.delete-action { display: inline-grid; place-items: center; min-width: 42px; min-height: 42px; padding: 9px; border: 1px solid #e7c4c4; background: #fff5f5; color: #b23e3e; }
+.delete-action svg { width: 18px; height: 18px; }
 .product-admin { display: grid; gap: 24px; }
 .create-product { margin-top: 0; border-top: 4px solid var(--gold); }
 .create-product-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
@@ -69,6 +73,15 @@
 .support-ticket .message-head > div { display: grid; gap: 5px; }
 .support-ticket .message-head small { color: #77818d; }
 .support-ticket > p { margin: 18px 0 0; line-height: 1.6; white-space: pre-wrap; }
+.support-chat { display: grid; gap: 10px; margin-top: 20px; }
+.chat-bubble { width: min(82%, 560px); padding: 13px 15px; border-radius: 16px; overflow-wrap: anywhere; }
+.chat-bubble p { margin: 6px 0; white-space: pre-wrap; }
+.chat-bubble small { color: #77818d; font-size: 11px; }
+.chat-bubble.customer { justify-self: end; border-bottom-right-radius: 4px; background: var(--navy); color: #fff; }
+.chat-bubble.customer small { color: #d8e0ea; }
+.chat-bubble.admin { justify-self: start; border-bottom-left-radius: 4px; background: #edf0f5; }
+.chat-compose { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; margin-top: 16px; }
+.chat-compose textarea { width: 100%; min-height: 74px; padding: 12px; resize: vertical; border: 1px solid #dce0e5; }
 .customer-reply { margin-top: 20px; padding: 17px 18px; border-left: 4px solid var(--gold); background: #f3f6f8; }
 .customer-reply p { margin: 8px 0 0; white-space: pre-wrap; }
 .support-empty { padding: 26px; border: 1px dashed #cfd5dc; color: #657181; text-align: center; }
@@ -83,6 +96,7 @@
   .admin-list { padding: 16px; }
   .order-row { grid-template-columns: 1fr auto; gap: 12px; }
   .order-row select { grid-column: 1 / -1; width: 100%; padding: 11px; }
+  .order-row .delete-action { grid-column: 1 / -1; width: 100%; }
   .reply-box { grid-template-columns: 1fr; }
   .reply-box .button { width: 100%; }
   .admin-review { grid-template-columns: 64px minmax(0, 1fr); }
@@ -92,15 +106,20 @@
   .create-product-head { align-items: stretch; flex-direction: column; }
   .create-product-head .button { width: 100%; }
   .create-product-fields { grid-template-columns: 1fr; }
+  .stock-list > div { grid-template-columns: 54px minmax(0, 1fr); }
+  .stock-list img { width: 54px; height: 54px; }
+  .stock-list label { grid-column: 1 / -1; justify-content: space-between; }
+  .stock-list label input { width: 110px; }
+  .stock-list .button, .stock-list .delete-action { grid-column: 1 / -1; width: 100%; }
   .support-history { margin-top: 34px; }
   .support-ticket { padding: 18px; }
   .support-ticket .message-head { align-items: flex-start; }
+  .chat-bubble { width: 92%; }
+  .chat-compose { grid-template-columns: 1fr; }
+  .chat-compose .button { width: 100%; }
 }
 
 @media (max-width: 420px) {
   .stats { grid-template-columns: 1fr; }
-  .stock-list > div { grid-template-columns: 54px minmax(0, 1fr); }
-  .stock-list label { grid-column: 1 / -1; justify-content: space-between; }
-  .stock-list label input { width: 110px; }
-  .stock-list .button { grid-column: 1 / -1; width: 100%; }
+  .ticket-actions { align-items: flex-end; flex-direction: column; }
 }

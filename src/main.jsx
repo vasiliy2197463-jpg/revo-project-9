@@ -167,6 +167,34 @@ const read = (k, d) => {
     return d;
   }
 };
+const threadMessages = (thread) => {
+  if (Array.isArray(thread.conversation) && thread.conversation.length) {
+    return thread.conversation;
+  }
+  const conversation = [];
+  if (thread.text) {
+    conversation.push({
+      sender: "customer",
+      text: thread.text,
+      createdAt: thread.createdAt,
+    });
+  }
+  if (thread.reply) {
+    conversation.push({
+      sender: "admin",
+      text: thread.reply,
+      createdAt: thread.repliedAt,
+    });
+  }
+  return conversation;
+};
+const normalizeSearch = (value) =>
+  String(value || "")
+    .toLocaleLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ё/g, "е")
+    .trim();
 function Provider({ children }) {
   const [lang, setLang] = useState(
     () => localStorage.getItem("revo-lang") || "ru",
@@ -175,6 +203,9 @@ function Provider({ children }) {
   const [favs, setFavs] = useState(() => read("revo-favs", []));
   const [customProducts, setCustomProducts] = useState(() =>
     read("revo-custom-products", []),
+  );
+  const [hiddenProducts, setHiddenProducts] = useState(() =>
+    read("revo-hidden-products", []),
   );
   const [user, setUser] = useState(() =>
     withAccountRole(read("revo-user", null)),
@@ -194,6 +225,9 @@ function Provider({ children }) {
     localStorage.setItem("revo-custom-products", JSON.stringify(customProducts));
   }, [customProducts]);
   useEffect(() => {
+    localStorage.setItem("revo-hidden-products", JSON.stringify(hiddenProducts));
+  }, [hiddenProducts]);
+  useEffect(() => {
     localStorage.setItem("revo-user", JSON.stringify(user));
   }, [user]);
   useEffect(() => {
@@ -209,6 +243,21 @@ function Provider({ children }) {
   };
   const toggleFav = (id) =>
     setFavs((x) => (x.includes(id) ? x.filter((v) => v !== id) : [...x, id]));
+  const products = [...baseProducts, ...customProducts].filter(
+    (product) => !hiddenProducts.includes(product.id),
+  );
+  const deleteProduct = (id) => {
+    setCustomProducts((current) => current.filter((product) => product.id !== id));
+    setHiddenProducts((current) =>
+      current.includes(id) ? current : [...current, id],
+    );
+    setCart((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    setFavs((current) => current.filter((productId) => productId !== id));
+  };
   return (
     <Store.Provider
       value={{
@@ -220,9 +269,10 @@ function Provider({ children }) {
         favs,
         toggleFav,
         add,
-        products: [...baseProducts, ...customProducts],
+        products,
         addProduct: (product) =>
           setCustomProducts((current) => [product, ...current]),
+        deleteProduct,
         user,
         setUser,
         orders,
@@ -606,15 +656,17 @@ function GiftSection() {
 function Catalog() {
   const { t, products } = useStore();
   const loc = useLocation();
+  const navigate = useNavigate();
   const qs = new URLSearchParams(loc.search);
-  const [q, setQ] = useState(qs.get("q") || "");
+  const q = qs.get("q") || "";
   const type = qs.get("type");
+  const query = normalizeSearch(q);
   const list = products.filter(
     (p) =>
       (!type || (type === "gift" ? p.roast === "gift" : p.roast === "combo")) &&
-      `${p.title.ru} ${p.title.en} ${p.note.ru} ${p.note.en}`
-        .toLowerCase()
-        .includes(q.toLowerCase()),
+      normalizeSearch(
+        `${p.title.ru} ${p.title.en} ${p.note.ru} ${p.note.en} ${p.roast} ${p.id}`,
+      ).includes(query),
   );
   return (
     <Layout>
@@ -628,7 +680,12 @@ function Catalog() {
             <Search />
             <input
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(event) => {
+                const next = new URLSearchParams(loc.search);
+                if (event.target.value) next.set("q", event.target.value);
+                else next.delete("q");
+                navigate({ pathname: "/catalog", search: next.toString() }, { replace: true });
+              }}
               placeholder={t.search}
             />
           </label>
@@ -1049,6 +1106,13 @@ function Support() {
           new: "Новое",
           answered: "Отвечено",
           answer: "Ответ поддержки",
+          chatPlaceholder: "Напишите сообщение в чат",
+          sendToChat: "Отправить в чат",
+          customer: "Вы",
+          supportAgent: "Поддержка",
+          deleteChat: "Удалить чат",
+          confirmDeleteChat: "Удалить этот чат без возможности восстановления?",
+          chatDeleted: "Чат удалён",
           sent: "Обращение отправлено",
           empty: "Вы ещё не отправляли обращений с этой почты.",
         }
@@ -1060,6 +1124,13 @@ function Support() {
           new: "New",
           answered: "Answered",
           answer: "Support reply",
+          chatPlaceholder: "Write a message in the chat",
+          sendToChat: "Send to chat",
+          customer: "You",
+          supportAgent: "Support",
+          deleteChat: "Delete chat",
+          confirmDeleteChat: "Delete this chat permanently?",
+          chatDeleted: "Chat deleted",
           sent: "Request sent",
           empty: "You have not sent any requests from this email yet.",
         };
@@ -1074,15 +1145,18 @@ function Support() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email") || "").trim();
+    const createdAt = new Date().toISOString();
+    const text = String(fd.get("text") || "").trim();
     const next = [
       {
         id: Date.now(),
         name: fd.get("name"),
         email,
         subject: fd.get("subject"),
-        text: fd.get("text"),
+        text,
         status: "new",
-        createdAt: new Date().toISOString(),
+        createdAt,
+        conversation: [{ sender: "customer", text, createdAt }],
       },
       ...messages,
     ];
@@ -1092,6 +1166,36 @@ function Support() {
     localStorage.setItem("revo-support-email", email);
     e.currentTarget.reset();
     flash(ui.sent);
+  };
+  const sendToChat = (event, id) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const text = String(data.get("chatMessage") || "").trim();
+    if (!text) return;
+    const next = messages.map((message) =>
+      message.id === id
+        ? {
+            ...message,
+            status: "new",
+            conversation: [
+              ...threadMessages(message),
+              { sender: "customer", text, createdAt: new Date().toISOString() },
+            ],
+          }
+        : message,
+    );
+    setMessages(next);
+    localStorage.setItem("revo-support", JSON.stringify(next));
+    form.reset();
+    flash(ui.sent);
+  };
+  const deleteChat = (id) => {
+    if (!window.confirm(ui.confirmDeleteChat)) return;
+    const next = messages.filter((message) => message.id !== id);
+    setMessages(next);
+    localStorage.setItem("revo-support", JSON.stringify(next));
+    flash(ui.chatDeleted);
   };
   const ownMessages = messages.filter(
     (message) => normalizeEmail(message.email) === normalizeEmail(contactEmail),
@@ -1142,19 +1246,56 @@ function Support() {
                           : ""}
                       </small>
                     </div>
-                    <span
-                      className={`status ${message.status === "answered" ? "answered" : "new"}`}
-                    >
-                      {message.status === "answered" ? ui.answered : ui.new}
-                    </span>
-                  </div>
-                  <p>{message.text}</p>
-                  {message.reply && (
-                    <div className="customer-reply">
-                      <b>{ui.answer}</b>
-                      <p>{message.reply}</p>
+                    <div className="ticket-actions">
+                      <span
+                        className={`status ${message.status === "answered" ? "answered" : "new"}`}
+                      >
+                        {message.status === "answered" ? ui.answered : ui.new}
+                      </span>
+                      <button
+                        type="button"
+                        className="delete-action icon-only"
+                        aria-label={ui.deleteChat}
+                        title={ui.deleteChat}
+                        onClick={() => deleteChat(message.id)}
+                      >
+                        <Trash2 />
+                      </button>
                     </div>
-                  )}
+                  </div>
+                  <div className="support-chat">
+                    {threadMessages(message).map((chatMessage, index) => (
+                      <div
+                        className={`chat-bubble ${chatMessage.sender}`}
+                        key={`${message.id}-${index}`}
+                      >
+                        <b>
+                          {chatMessage.sender === "admin"
+                            ? ui.supportAgent
+                            : ui.customer}
+                        </b>
+                        <p>{chatMessage.text}</p>
+                        {chatMessage.createdAt && (
+                          <small>
+                            {new Date(chatMessage.createdAt).toLocaleString(
+                              lang === "ru" ? "ru-RU" : "en-US",
+                            )}
+                          </small>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <form
+                    className="chat-compose"
+                    onSubmit={(event) => sendToChat(event, message.id)}
+                  >
+                    <textarea
+                      name="chatMessage"
+                      required
+                      placeholder={ui.chatPlaceholder}
+                    />
+                    <button className="button small">{ui.sendToChat}</button>
+                  </form>
                 </article>
               ))}
             </div>
@@ -1171,7 +1312,16 @@ function Admin() {
   return user?.role === "admin" ? <AdminDashboard /> : <Navigate to="/auth" replace />;
 }
 function AdminDashboard() {
-  const { lang, t, orders, setOrders, flash, products, addProduct } = useStore();
+  const {
+    lang,
+    t,
+    orders,
+    setOrders,
+    flash,
+    products,
+    addProduct,
+    deleteProduct,
+  } = useStore();
   const ui =
     lang === "ru"
       ? {
@@ -1187,6 +1337,8 @@ function AdminDashboard() {
           reply: "Ответить",
           replyPlaceholder: "Напишите ответ клиенту",
           sendReply: "Отправить ответ",
+          customer: "Клиент",
+          supportAgent: "Поддержка",
           saved: "Изменения сохранены",
           stockSaved: "Остаток сохранён",
           replySaved: "Ответ сохранён",
@@ -1205,6 +1357,15 @@ function AdminDashboard() {
           category: "Категория",
           price: "Цена",
           productCreated: "Товар создан и добавлен в каталог",
+          deleteProduct: "Удалить товар",
+          deleteOrder: "Удалить заказ",
+          deleteChat: "Удалить чат",
+          confirmDeleteProduct: "Удалить этот товар из каталога?",
+          confirmDeleteOrder: "Удалить этот заказ?",
+          confirmDeleteChat: "Удалить этот чат без возможности восстановления?",
+          productDeleted: "Товар удалён",
+          orderDeleted: "Заказ удалён",
+          chatDeleted: "Чат удалён",
           noData: "Данных пока нет",
         }
       : {
@@ -1220,6 +1381,8 @@ function AdminDashboard() {
           reply: "Reply",
           replyPlaceholder: "Write a reply to the customer",
           sendReply: "Send reply",
+          customer: "Customer",
+          supportAgent: "Support",
           saved: "Changes saved",
           stockSaved: "Stock saved",
           replySaved: "Reply saved",
@@ -1238,6 +1401,15 @@ function AdminDashboard() {
           category: "Category",
           price: "Price",
           productCreated: "Product created and added to the catalog",
+          deleteProduct: "Delete product",
+          deleteOrder: "Delete order",
+          deleteChat: "Delete chat",
+          confirmDeleteProduct: "Delete this product from the catalog?",
+          confirmDeleteOrder: "Delete this order?",
+          confirmDeleteChat: "Delete this chat permanently?",
+          productDeleted: "Product deleted",
+          orderDeleted: "Order deleted",
+          chatDeleted: "Chat deleted",
           noData: "No data yet",
         };
   const [tab, setTab] = useState("overview");
@@ -1322,13 +1494,18 @@ function AdminDashboard() {
   const sendReply = (id) => {
     const text = (drafts[id] || "").trim();
     if (!text) return;
+    const createdAt = new Date().toISOString();
     const next = messages.map((m) =>
       m.id === id
         ? {
             ...m,
             reply: text,
             status: "answered",
-            repliedAt: new Date().toISOString(),
+            repliedAt: createdAt,
+            conversation: [
+              ...threadMessages(m),
+              { sender: "admin", text, createdAt },
+            ],
           }
         : m,
     );
@@ -1336,6 +1513,33 @@ function AdminDashboard() {
     localStorage.setItem("revo-support", JSON.stringify(next));
     setDrafts((current) => ({ ...current, [id]: "" }));
     flash(ui.replySaved);
+  };
+  const removeProduct = (id) => {
+    if (!window.confirm(ui.confirmDeleteProduct)) return;
+    deleteProduct(id);
+    const nextStock = { ...stock };
+    delete nextStock[id];
+    setStock(nextStock);
+    localStorage.setItem("revo-stock", JSON.stringify(nextStock));
+    localStorage.removeItem(`revo-reviews-${id}`);
+    flash(ui.productDeleted);
+  };
+  const removeOrder = (id) => {
+    if (!window.confirm(ui.confirmDeleteOrder)) return;
+    setOrders(orders.filter((order) => order.id !== id));
+    flash(ui.orderDeleted);
+  };
+  const removeChat = (id) => {
+    if (!window.confirm(ui.confirmDeleteChat)) return;
+    const next = messages.filter((message) => message.id !== id);
+    setMessages(next);
+    localStorage.setItem("revo-support", JSON.stringify(next));
+    setDrafts((current) => {
+      const remaining = { ...current };
+      delete remaining[id];
+      return remaining;
+    });
+    flash(ui.chatDeleted);
   };
   const deleteReview = (productId, reviewIndex) => {
     const key = `revo-reviews-${productId}`;
@@ -1493,6 +1697,15 @@ function AdminDashboard() {
                   >
                     {t.save}
                   </button>
+                  <button
+                    type="button"
+                    className="delete-action icon-only"
+                    aria-label={ui.deleteProduct}
+                    title={ui.deleteProduct}
+                    onClick={() => removeProduct(p.id)}
+                  >
+                    <Trash2 />
+                  </button>
                 </div>
               ))}
             </div>
@@ -1521,6 +1734,15 @@ function AdminDashboard() {
                     <option value="work">{ui.work}</option>
                     <option value="done">{ui.done}</option>
                   </select>
+                  <button
+                    type="button"
+                    className="delete-action icon-only"
+                    aria-label={ui.deleteOrder}
+                    title={ui.deleteOrder}
+                    onClick={() => removeOrder(o.id)}
+                  >
+                    <Trash2 />
+                  </button>
                 </div>
               ))
             ) : (
@@ -1535,11 +1757,22 @@ function AdminDashboard() {
                 <div className="message support-message" key={m.id}>
                   <div className="message-head">
                     <b>{m.name}</b>
-                    <span
-                      className={`status ${m.status === "answered" ? "answered" : "new"}`}
-                    >
-                      {m.status === "answered" ? ui.answered : ui.new}
-                    </span>
+                    <div className="ticket-actions">
+                      <span
+                        className={`status ${m.status === "answered" ? "answered" : "new"}`}
+                      >
+                        {m.status === "answered" ? ui.answered : ui.new}
+                      </span>
+                      <button
+                        type="button"
+                        className="delete-action icon-only"
+                        aria-label={ui.deleteChat}
+                        title={ui.deleteChat}
+                        onClick={() => removeChat(m.id)}
+                      >
+                        <Trash2 />
+                      </button>
+                    </div>
                   </div>
                   <a href={`mailto:${m.email}`}>{m.email}</a>
                   {m.subject && <h3>{m.subject}</h3>}
@@ -1550,13 +1783,28 @@ function AdminDashboard() {
                       )}
                     </small>
                   )}
-                  <p>{m.text}</p>
-                  {m.reply && (
-                    <div className="saved-reply">
-                      <b>{ui.reply}</b>
-                      <p>{m.reply}</p>
-                    </div>
-                  )}
+                  <div className="support-chat admin-chat">
+                    {threadMessages(m).map((chatMessage, index) => (
+                      <div
+                        className={`chat-bubble ${chatMessage.sender}`}
+                        key={`${m.id}-${index}`}
+                      >
+                        <b>
+                          {chatMessage.sender === "admin"
+                            ? ui.supportAgent
+                            : ui.customer}
+                        </b>
+                        <p>{chatMessage.text}</p>
+                        {chatMessage.createdAt && (
+                          <small>
+                            {new Date(chatMessage.createdAt).toLocaleString(
+                              lang === "ru" ? "ru-RU" : "en-US",
+                            )}
+                          </small>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                   <div className="reply-box">
                     <textarea
                       value={drafts[m.id] || ""}
