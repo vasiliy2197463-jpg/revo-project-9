@@ -1527,6 +1527,17 @@ function AdminDashboard() {
   const [messages, setMessages] = useState(() => read("revo-support", []));
   const [drafts, setDrafts] = useState({});
   const [reviewVersion, setReviewVersion] = useState(0);
+  const scrollAdminTabs = (event) => {
+    const tabsElement = event.currentTarget;
+    if (tabsElement.scrollWidth <= tabsElement.clientWidth) return;
+    const distance =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ? event.deltaX
+        : event.deltaY;
+    if (!distance) return;
+    tabsElement.scrollLeft += distance;
+    event.preventDefault();
+  };
   const adminMessagesRef = useRef(messages);
   useEffect(() => {
     adminMessagesRef.current = messages;
@@ -1704,7 +1715,7 @@ function AdminDashboard() {
             {ui.store}
           </Link>
         </div>
-        <div className="admin-tabs">
+        <div className="admin-tabs" onWheel={scrollAdminTabs}>
           {tabs.map((x) => (
             <button
               type="button"
