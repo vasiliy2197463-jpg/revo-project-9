@@ -1527,17 +1527,29 @@ function AdminDashboard() {
   const [messages, setMessages] = useState(() => read("revo-support", []));
   const [drafts, setDrafts] = useState({});
   const [reviewVersion, setReviewVersion] = useState(0);
-  const scrollAdminTabs = (event) => {
-    const tabsElement = event.currentTarget;
-    if (tabsElement.scrollWidth <= tabsElement.clientWidth) return;
-    const distance =
-      Math.abs(event.deltaX) > Math.abs(event.deltaY)
-        ? event.deltaX
-        : event.deltaY;
-    if (!distance) return;
-    tabsElement.scrollLeft += distance;
-    event.preventDefault();
-  };
+  const adminTabsRef = useRef(null);
+  useEffect(() => {
+    const tabsElement = adminTabsRef.current;
+    if (!tabsElement) return undefined;
+    const scrollWithMouse = (event) => {
+      if (tabsElement.scrollWidth <= tabsElement.clientWidth) return;
+      const distance =
+        Math.abs(event.deltaX) > Math.abs(event.deltaY)
+          ? event.deltaX
+          : event.deltaY;
+      if (!distance) return;
+      const multiplier =
+        event.deltaMode === WheelEvent.DOM_DELTA_LINE
+          ? 28
+          : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+            ? tabsElement.clientWidth
+            : 1;
+      event.preventDefault();
+      tabsElement.scrollLeft += distance * multiplier;
+    };
+    tabsElement.addEventListener("wheel", scrollWithMouse, { passive: false });
+    return () => tabsElement.removeEventListener("wheel", scrollWithMouse);
+  }, []);
   const adminMessagesRef = useRef(messages);
   useEffect(() => {
     adminMessagesRef.current = messages;
@@ -1715,7 +1727,7 @@ function AdminDashboard() {
             {ui.store}
           </Link>
         </div>
-        <div className="admin-tabs" onWheel={scrollAdminTabs}>
+        <div className="admin-tabs" ref={adminTabsRef}>
           {tabs.map((x) => (
             <button
               type="button"
