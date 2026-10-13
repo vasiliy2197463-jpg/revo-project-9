@@ -42,7 +42,7 @@ html, body, #root {
 .thumbs button { flex: 0 0 auto; scroll-snap-align: start; }
 
 @media (max-width: 560px) {
-  html, body, #root { overflow-x: clip; }
+  html, body, #root { min-width: 0; overflow-x: clip; }
   body { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
   .header { height: 68px; padding: 0 18px; }
   .logo img { width: 98px; }
@@ -55,7 +55,7 @@ html, body, #root {
   .mobile-search input { min-width: 0; height: 44px; }
   .mobile-search button { width: 48px; }
 
-  .mobile-nav { position: fixed; z-index: 70; left: 0; right: auto; bottom: 0; width: 100dvw; max-width: 100%; min-height: 66px; padding: 7px 8px calc(7px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: #fff; border-top: 1px solid #dfe3e7; box-shadow: 0 -8px 30px #26384e15; }
+  .mobile-nav { position: fixed; z-index: 70; left: 0; right: 0; bottom: 0; width: auto; max-width: none; min-height: 66px; padding: 7px 8px calc(7px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: #fff; border-top: 1px solid #dfe3e7; box-shadow: 0 -8px 30px #26384e15; }
   .mobile-nav a { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px; color: #77818d; font-size: 10px; font-weight: 800; min-width: 0; }
   .mobile-nav a.active { color: var(--navy); }
   .mobile-nav svg { width: 21px; height: 21px; }

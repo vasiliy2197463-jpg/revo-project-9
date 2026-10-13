@@ -2,6 +2,13 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+.form-error { margin: 0; color: #b23e3e; font-weight: 700; line-height: 1.45; }
+.demo-note { padding: 11px 13px; background: #fff8e8; color: #725325; line-height: 1.45; }
+.review-rating { display: flex; gap: 5px; margin-bottom: 10px; }
+.review-rating button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid #dce0e5; background: #fff; color: #aab1b9; }
+.review-rating button.active { border-color: #d69d32; color: #d69d32; background: #fffaf0; }
+.review-rating svg { width: 22px; height: 22px; }
+.main-image, .main-image img { user-select: none; -webkit-user-drag: none; }
 .support-nav-link { display: inline-flex; align-items: center; gap: 7px; }
 .support-unread { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 20px; background: var(--gold); color: #fff; font-size: 11px; }
 .admin-tabs::-webkit-scrollbar { display: none; }

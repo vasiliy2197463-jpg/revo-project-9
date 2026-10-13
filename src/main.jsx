@@ -38,6 +38,11 @@ import {
   X,
 } from "lucide-react";
 import { products as baseProducts } from "./data/products";
+import {
+  isSupabaseConfigured,
+  profileFromSession,
+  supabase,
+} from "./lib/supabase";
 import "./styles.css";
 import "./quantity.css";
 import "./mobile.css";
@@ -199,6 +204,29 @@ const normalizeSearch = (value) =>
     .trim();
 const messageKey = (message) =>
   `${message.sender}:${message.createdAt || ""}:${message.text || ""}`;
+const loadSupportThreads = async () => {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("support_threads")
+    .select("*, support_messages(*)")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map((thread) => ({
+    id: thread.id,
+    name: thread.customer_name,
+    email: thread.email,
+    subject: thread.subject,
+    status: thread.status,
+    createdAt: thread.created_at,
+    conversation: (thread.support_messages || [])
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      .map((message) => ({
+        sender: message.sender_role,
+        text: message.body,
+        createdAt: message.created_at,
+      })),
+  }));
+};
 const addAdminUnread = () => {
   const next = Number(localStorage.getItem("revo-admin-unread") || 0) + 1;
   localStorage.setItem("revo-admin-unread", String(next));
@@ -222,12 +250,14 @@ function Provider({ children }) {
   const [customProducts, setCustomProducts] = useState(() =>
     read("revo-custom-products", []),
   );
+  const [remoteProducts, setRemoteProducts] = useState([]);
   const [hiddenProducts, setHiddenProducts] = useState(() =>
     read("revo-hidden-products", []),
   );
-  const [user, setUser] = useState(() =>
-    withAccountRole(read("revo-user", null)),
+  const [user, setUserState] = useState(() =>
+    isSupabaseConfigured ? null : withAccountRole(read("revo-user", null)),
   );
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [orders, setOrders] = useState(() => read("revo-orders", []));
   const [toast, setToast] = useState("");
   useEffect(() => {
@@ -246,11 +276,97 @@ function Provider({ children }) {
     localStorage.setItem("revo-hidden-products", JSON.stringify(hiddenProducts));
   }, [hiddenProducts]);
   useEffect(() => {
-    localStorage.setItem("revo-user", JSON.stringify(user));
+    if (!isSupabaseConfigured) {
+      localStorage.setItem("revo-user", JSON.stringify(user));
+    }
   }, [user]);
+  useEffect(() => {
+    if (!supabase) return undefined;
+    let active = true;
+    const applySession = async (session) => {
+      const profile = await profileFromSession(session?.user);
+      if (!active) return;
+      setUserState(withAccountRole(profile));
+      setAuthReady(true);
+    };
+    supabase.auth.getSession().then(({ data }) => applySession(data.session));
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session);
+    });
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+  const setUser = async (nextUser) => {
+    if (!nextUser && supabase) {
+      await supabase.auth.signOut();
+    }
+    setUserState(nextUser ? withAccountRole(nextUser) : null);
+  };
   useEffect(() => {
     localStorage.setItem("revo-orders", JSON.stringify(orders));
   }, [orders]);
+  useEffect(() => {
+    if (!supabase) return undefined;
+    let active = true;
+    const loadProducts = async () => {
+      const { data } = await supabase.from("products").select("*").order("created_at");
+      if (!active || !data?.length) return;
+      setRemoteProducts(
+        data.map((product) => ({
+          id: product.id,
+          image: product.image_url,
+          gallery:
+            Array.isArray(product.gallery) && product.gallery.length
+              ? product.gallery
+              : [product.image_url],
+          price: Number(product.price),
+          oldPrice: product.old_price ? Number(product.old_price) : undefined,
+          rating: 5,
+          stock: Number(product.stock),
+          roast: product.category,
+          title: { ru: product.title_ru, en: product.title_en },
+          note: { ru: product.description_ru, en: product.description_en },
+        })),
+      );
+    };
+    loadProducts();
+    const channel = supabase
+      .channel("revo-products")
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, loadProducts)
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+  useEffect(() => {
+    if (!supabase || !user?.id) return undefined;
+    let active = true;
+    const loadOrders = async () => {
+      const { data } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
+      if (!active || !data) return;
+      setOrders(
+        data.map((order) => ({
+          ...order,
+          id: order.order_number || order.id,
+          databaseId: order.id,
+          created: order.created_at,
+          total: Number(order.total),
+        })),
+      );
+    };
+    loadOrders();
+    const channel = supabase
+      .channel(`revo-orders-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, loadOrders)
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
   const flash = (s) => {
     setToast(s);
     setTimeout(() => setToast(""), 2200);
@@ -261,7 +377,10 @@ function Provider({ children }) {
   };
   const toggleFav = (id) =>
     setFavs((x) => (x.includes(id) ? x.filter((v) => v !== id) : [...x, id]));
-  const products = [...baseProducts, ...customProducts].filter(
+  const catalogSource = remoteProducts.length
+    ? remoteProducts
+    : [...baseProducts, ...customProducts];
+  const products = catalogSource.filter(
     (product) => !hiddenProducts.includes(product.id),
   );
   const deleteProduct = (id) => {
@@ -293,6 +412,8 @@ function Provider({ children }) {
         deleteProduct,
         user,
         setUser,
+        authReady,
+        backendConnected: isSupabaseConfigured,
         orders,
         setOrders,
         flash,
@@ -742,12 +863,52 @@ function Catalog() {
 }
 function Product() {
   const { id } = useParams();
-  const { lang, t, favs, toggleFav, products } = useStore();
+  const { lang, t, favs, toggleFav, products, user, backendConnected, flash } = useStore();
+  const nav = useNavigate();
   const p = products.find((x) => x.id === id);
   const [active, setActive] = useState(0);
   const touchStart = useRef(null);
   const [review, setReview] = useState("");
-  const [reviews, setReviews] = useState(() => read(`revo-reviews-${id}`, []));
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviews, setReviews] = useState(() =>
+    isSupabaseConfigured ? [] : read(`revo-reviews-${id}`, []),
+  );
+  useEffect(() => {
+    if (!supabase) return undefined;
+    let active = true;
+    const reload = async () => {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("id, user_id, rating, body, admin_reply, created_at")
+        .eq("product_id", id)
+        .order("created_at", { ascending: false });
+      if (error) {
+        flash(error.message);
+        return;
+      }
+      if (active) {
+        setReviews(
+          (data || []).map((item) => ({
+            id: item.id,
+            userId: item.user_id,
+            rating: item.rating,
+            text: item.body,
+            adminReply: item.admin_reply,
+            date: new Date(item.created_at).toLocaleDateString(),
+          })),
+        );
+      }
+    };
+    reload();
+    const channel = supabase
+      .channel(`revo-reviews-${id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `product_id=eq.${id}` }, reload)
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [flash, id]);
   if (!p)
     return (
       <Layout>
@@ -758,22 +919,46 @@ function Product() {
     setActive(
       (current) => (current + next + p.gallery.length) % p.gallery.length,
     );
-  const touchEnd = (e) => {
+  const pointerEnd = (event) => {
     if (touchStart.current === null) return;
-    const distance = e.changedTouches[0].clientX - touchStart.current;
+    const distance = event.clientX - touchStart.current;
     if (Math.abs(distance) > 45) show(distance < 0 ? 1 : -1);
     touchStart.current = null;
   };
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!review.trim()) return;
+    if (backendConnected && !user?.id) {
+      nav("/auth");
+      return;
+    }
+    if (supabase) {
+      const { error } = await supabase.from("reviews").upsert(
+        {
+          product_id: id,
+          user_id: user.id,
+          rating: reviewRating,
+          body: review.trim(),
+        },
+        { onConflict: "product_id,user_id" },
+      );
+      if (error) {
+        flash(error.message);
+        return;
+      }
+    }
     const n = [
-      { text: review, date: new Date().toLocaleDateString(), rating: 5 },
+      {
+        text: review,
+        date: new Date().toLocaleDateString(),
+        rating: reviewRating,
+      },
       ...reviews,
     ];
     setReviews(n);
-    localStorage.setItem(`revo-reviews-${id}`, JSON.stringify(n));
+    if (!supabase) localStorage.setItem(`revo-reviews-${id}`, JSON.stringify(n));
     setReview("");
+    setReviewRating(5);
   };
   return (
     <Layout>
@@ -785,10 +970,14 @@ function Product() {
           <div className="gallery">
             <div
               className="main-image"
-              onTouchStart={(e) => {
-                touchStart.current = e.touches[0].clientX;
+              onPointerDown={(event) => {
+                touchStart.current = event.clientX;
+                event.currentTarget.setPointerCapture(event.pointerId);
               }}
-              onTouchEnd={touchEnd}
+              onPointerUp={pointerEnd}
+              onPointerCancel={() => {
+                touchStart.current = null;
+              }}
             >
               <img
                 src={p.gallery[active]}
@@ -868,7 +1057,21 @@ function Product() {
         <section className="reviews">
           <SectionTitle eyebrow={t.write} title={t.reviews} />
           <form onSubmit={submit}>
-            <div className="stars">★★★★★</div>
+            <div className="review-rating" role="radiogroup" aria-label={lang === "ru" ? "Оценка товара" : "Product rating"}>
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={reviewRating === value}
+                  aria-label={`${value} / 5`}
+                  className={value <= reviewRating ? "active" : ""}
+                  onClick={() => setReviewRating(value)}
+                  key={value}
+                >
+                  <Star fill={value <= reviewRating ? "currentColor" : "none"} />
+                </button>
+              ))}
+            </div>
             <textarea
               value={review}
               onChange={(e) => setReview(e.target.value)}
@@ -881,6 +1084,7 @@ function Product() {
               <div className="stars">{"★".repeat(r.rating)}</div>
               <p>{r.text}</p>
               <small>{r.date}</small>
+              {r.adminReply && <div className="customer-reply"><b>REVO</b><p>{r.adminReply}</p></div>}
             </blockquote>
           ))}
         </section>
@@ -981,20 +1185,73 @@ function Cart() {
   );
 }
 function Checkout() {
-  const { cart, setCart, user, orders, setOrders, t, products } = useStore();
+  const { cart, setCart, user, orders, setOrders, t, products, backendConnected } = useStore();
   const nav = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const total = products.reduce((s, p) => s + (cart[p.id] || 0) * p.price, 0);
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
+    if (backendConnected && !user?.id) {
+      nav("/auth");
+      return;
+    }
+    const data = new FormData(e.currentTarget);
+    setBusy(true);
+    setError("");
     const order = {
       id: `RV-${Date.now().toString().slice(-6)}`,
       created: new Date().toISOString(),
       items: cart,
       total,
       status: "new",
+      customerName: String(data.get("name") || ""),
+      email: String(data.get("email") || ""),
+      phone: String(data.get("phone") || ""),
+      address: String(data.get("address") || ""),
+      comment: String(data.get("comment") || ""),
     };
+    if (supabase) {
+      const { data: created, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          customer_name: order.customerName,
+          email: order.email,
+          phone: order.phone,
+          address: order.address,
+          comment: order.comment,
+          total,
+        })
+        .select("id, order_number, created_at")
+        .single();
+      if (orderError) {
+        setError(orderError.message);
+        setBusy(false);
+        return;
+      }
+      const items = products
+        .filter((product) => cart[product.id])
+        .map((product) => ({
+          order_id: created.id,
+          product_id: product.id,
+          quantity: cart[product.id],
+          price: product.price,
+        }));
+      const { error: itemsError } = await supabase.from("order_items").insert(items);
+      if (itemsError) {
+        await supabase.from("orders").delete().eq("id", created.id);
+        setError(itemsError.message);
+        setBusy(false);
+        return;
+      }
+      order.id = created.order_number;
+      order.databaseId = created.id;
+      order.created = created.created_at;
+    }
     setOrders([order, ...orders]);
     setCart({});
+    setBusy(false);
     nav("/success");
   };
   return (
@@ -1004,20 +1261,22 @@ function Checkout() {
           <h1>{t.checkout}</h1>
         </div>
         <form className="form-card" onSubmit={submit}>
-          <input required placeholder={t.name} defaultValue={user?.name} />
+          <input name="name" required placeholder={t.name} defaultValue={user?.name} />
           <input
+            name="email"
             required
             type="email"
             placeholder={t.email}
             defaultValue={user?.email}
           />
-          <input required placeholder="Телефон / Phone" />
-          <input required placeholder="Адрес доставки / Delivery address" />
-          <textarea placeholder="Комментарий / Comment" />
+          <input name="phone" required type="tel" placeholder="Телефон / Phone" />
+          <input name="address" required placeholder="Адрес доставки / Delivery address" />
+          <textarea name="comment" placeholder="Комментарий / Comment" />
+          {error && <p className="form-error" role="alert">{error}</p>}
           <div className="summary inline">
             <span>{t.total}</span>
             <strong>${total.toFixed(2)}</strong>
-            <button className="button" disabled={!total}>
+            <button className="button" disabled={!total || busy}>
               {t.checkout}
             </button>
           </div>
@@ -1042,17 +1301,48 @@ function Success() {
   );
 }
 function Auth() {
-  const { t, setUser } = useStore();
+  const { t, setUser, backendConnected } = useStore();
   const nav = useNavigate();
   const [mode, setMode] = useState("login");
-  const submit = (e) => {
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    setUser(withAccountRole({
-      name: fd.get("name") || "Coffee lover",
-      email: fd.get("email"),
-      role: "customer",
-    }));
+    const email = String(fd.get("email") || "").trim();
+    const password = String(fd.get("password") || "");
+    const name = String(fd.get("name") || "Coffee lover").trim();
+    setBusy(true);
+    setError("");
+    if (supabase) {
+      const result =
+        mode === "login"
+          ? await supabase.auth.signInWithPassword({ email, password })
+          : await supabase.auth.signUp({
+              email,
+              password,
+              options: { data: { name } },
+            });
+      if (result.error) {
+        setError(result.error.message);
+        setBusy(false);
+        return;
+      }
+      if (mode === "register" && !result.data.session) {
+        setError(
+          t.lang === "EN"
+            ? "Проверьте почту и подтвердите регистрацию."
+            : "Check your email to confirm registration.",
+        );
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      nav("/account");
+      return;
+    }
+    await setUser({ name, email, role: "customer" });
+    setBusy(false);
     nav("/account");
   };
   return (
@@ -1075,9 +1365,17 @@ function Auth() {
             minLength="6"
             placeholder={t.password}
           />
-          <button className="button">
+          <button className="button" disabled={busy}>
             {mode === "login" ? t.login : t.register}
           </button>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          {!backendConnected && (
+            <small className="demo-note">
+              {t.lang === "EN"
+                ? "Демо-режим: данные сохраняются только в этом браузере."
+                : "Demo mode: data is stored only in this browser."}
+            </small>
+          )}
           <button
             type="button"
             className="text-btn"
@@ -1093,6 +1391,13 @@ function Auth() {
 function Account() {
   const { user, setUser, orders, t } = useStore();
   if (!user) return <Auth />;
+  const visibleOrders =
+    user.role === "admin"
+      ? orders
+      : orders.filter(
+          (order) =>
+            !order.email || normalizeEmail(order.email) === normalizeEmail(user.email),
+        );
   return (
     <Layout>
       <div className="page narrow">
@@ -1108,8 +1413,8 @@ function Account() {
         </div>
         <h2>{t.orders}</h2>
         <div className="orders">
-          {orders.length ? (
-            orders.map((o) => (
+          {visibleOrders.length ? (
+            visibleOrders.map((o) => (
               <div key={o.id}>
                 <b>{o.id}</b>
                 <span>{new Date(o.created).toLocaleDateString()}</span>
@@ -1131,8 +1436,10 @@ function Account() {
   );
 }
 function Support() {
-  const { user, lang, t, flash } = useStore();
-  const [messages, setMessages] = useState(() => read("revo-support", []));
+  const { user, lang, t, flash, backendConnected } = useStore();
+  const [messages, setMessages] = useState(() =>
+    isSupabaseConfigured ? [] : read("revo-support", []),
+  );
   const [contactEmail, setContactEmail] = useState(
     () => user?.email || localStorage.getItem("revo-support-email") || "",
   );
@@ -1182,6 +1489,28 @@ function Support() {
         };
   const messagesRef = useRef(messages);
   useEffect(() => {
+    if (!supabase || !user?.id) return undefined;
+    let active = true;
+    const reload = async () => {
+      try {
+        const next = await loadSupportThreads();
+        if (active) setMessages(next);
+      } catch (error) {
+        if (active) flash(error.message);
+      }
+    };
+    reload();
+    const channel = supabase
+      .channel(`revo-support-customer-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_threads" }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_messages" }, reload)
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [flash, user?.id]);
+  useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
   useEffect(() => {
@@ -1227,39 +1556,88 @@ function Support() {
     window.dispatchEvent(new Event("revo-notifications"));
     flash(ui.newSupportMessage);
   }, [contactEmail, flash, ui.newSupportMessage]);
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email") || "").trim();
     const createdAt = new Date().toISOString();
     const text = String(fd.get("text") || "").trim();
-    const next = [
-      {
-        id: Date.now(),
-        name: fd.get("name"),
-        email,
-        subject: fd.get("subject"),
-        text,
-        status: "new",
-        createdAt,
-        conversation: [{ sender: "customer", text, createdAt }],
-      },
-      ...messages,
-    ];
+    if (backendConnected && !user?.id) {
+      flash(lang === "ru" ? "Войдите в аккаунт, чтобы написать в поддержку" : "Sign in to contact support");
+      return;
+    }
+    const thread = {
+      id: Date.now(),
+      name: fd.get("name"),
+      email,
+      subject: fd.get("subject"),
+      text,
+      status: "new",
+      createdAt,
+      conversation: [{ sender: "customer", text, createdAt }],
+    };
+    if (supabase) {
+      const { data: created, error: threadError } = await supabase
+        .from("support_threads")
+        .insert({
+          user_id: user.id,
+          customer_name: thread.name,
+          email,
+          subject: thread.subject,
+        })
+        .select("id, created_at")
+        .single();
+      if (threadError) {
+        flash(threadError.message);
+        return;
+      }
+      const { error: messageError } = await supabase.from("support_messages").insert({
+        thread_id: created.id,
+        sender_id: user.id,
+        sender_role: "customer",
+        body: text,
+      });
+      if (messageError) {
+        await supabase.from("support_threads").delete().eq("id", created.id);
+        flash(messageError.message);
+        return;
+      }
+      thread.id = created.id;
+      thread.createdAt = created.created_at;
+    }
+    const next = [thread, ...messages];
     setMessages(next);
     setContactEmail(email);
-    addAdminUnread();
-    localStorage.setItem("revo-support", JSON.stringify(next));
+    if (!supabase) {
+      addAdminUnread();
+      localStorage.setItem("revo-support", JSON.stringify(next));
+    }
     localStorage.setItem("revo-support-email", email);
     e.currentTarget.reset();
     flash(ui.sent);
   };
-  const sendToChat = (event, id) => {
+  const sendToChat = async (event, id) => {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
     const text = String(data.get("chatMessage") || "").trim();
     if (!text) return;
+    if (supabase) {
+      const { error } = await supabase.from("support_messages").insert({
+        thread_id: id,
+        sender_id: user.id,
+        sender_role: "customer",
+        body: text,
+      });
+      if (error) {
+        flash(error.message);
+        return;
+      }
+      await supabase
+        .from("support_threads")
+        .update({ status: "new", updated_at: new Date().toISOString() })
+        .eq("id", id);
+    }
     const next = messages.map((message) =>
       message.id === id
         ? {
@@ -1273,16 +1651,25 @@ function Support() {
         : message,
     );
     setMessages(next);
-    addAdminUnread();
-    localStorage.setItem("revo-support", JSON.stringify(next));
+    if (!supabase) {
+      addAdminUnread();
+      localStorage.setItem("revo-support", JSON.stringify(next));
+    }
     form.reset();
     flash(ui.sent);
   };
-  const deleteChat = (id) => {
+  const deleteChat = async (id) => {
     if (!window.confirm(ui.confirmDeleteChat)) return;
+    if (supabase) {
+      const { error } = await supabase.from("support_threads").delete().eq("id", id);
+      if (error) {
+        flash(error.message);
+        return;
+      }
+    }
     const next = messages.filter((message) => message.id !== id);
     setMessages(next);
-    localStorage.setItem("revo-support", JSON.stringify(next));
+    if (!supabase) localStorage.setItem("revo-support", JSON.stringify(next));
     flash(ui.chatDeleted);
   };
   const ownMessages = messages.filter(
@@ -1415,11 +1802,13 @@ function Support() {
   );
 }
 function Admin() {
-  const { user } = useStore();
+  const { user, authReady } = useStore();
+  if (!authReady) return <div className="page"><div className="empty"><Coffee /></div></div>;
   return user?.role === "admin" ? <AdminDashboard /> : <Navigate to="/auth" replace />;
 }
 function AdminDashboard() {
   const {
+    user,
     lang,
     t,
     orders,
@@ -1524,9 +1913,13 @@ function AdminDashboard() {
   const [tab, setTab] = useState("overview");
   const defaultStock = Object.fromEntries(products.map((p) => [p.id, p.stock]));
   const [stock, setStock] = useState(() => read("revo-stock", defaultStock));
-  const [messages, setMessages] = useState(() => read("revo-support", []));
+  const [messages, setMessages] = useState(() =>
+    isSupabaseConfigured ? [] : read("revo-support", []),
+  );
   const [drafts, setDrafts] = useState({});
+  const [reviewDrafts, setReviewDrafts] = useState({});
   const [reviewVersion, setReviewVersion] = useState(0);
+  const [remoteReviews, setRemoteReviews] = useState([]);
   const adminTabsRef = useRef(null);
   useEffect(() => {
     const tabsElement = adminTabsRef.current;
@@ -1551,6 +1944,28 @@ function AdminDashboard() {
     return () => tabsElement.removeEventListener("wheel", scrollWithMouse);
   }, []);
   const adminMessagesRef = useRef(messages);
+  useEffect(() => {
+    if (!supabase || !user?.id) return undefined;
+    let active = true;
+    const reload = async () => {
+      try {
+        const next = await loadSupportThreads();
+        if (active) setMessages(next);
+      } catch (error) {
+        if (active) flash(error.message);
+      }
+    };
+    reload();
+    const channel = supabase
+      .channel("revo-support-admin")
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_threads" }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_messages" }, reload)
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [flash, user?.id]);
   useEffect(() => {
     adminMessagesRef.current = messages;
   }, [messages]);
@@ -1583,21 +1998,66 @@ function AdminDashboard() {
     localStorage.setItem("revo-admin-unread", "0");
     flash(ui.newCustomerMessage);
   }, [flash, ui.newCustomerMessage]);
-  const reviews = products.flatMap((product) =>
-    read(`revo-reviews-${product.id}`, []).map((review, reviewIndex) => ({
-      ...review,
-      product,
-      reviewIndex,
-    })),
-  );
+  useEffect(() => {
+    if (!supabase || !user?.id) return undefined;
+    let active = true;
+    const reload = async () => {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("id, product_id, rating, body, admin_reply, created_at")
+        .order("created_at", { ascending: false });
+      if (error) {
+        flash(error.message);
+        return;
+      }
+      if (active) setRemoteReviews(data || []);
+    };
+    reload();
+    const channel = supabase
+      .channel("revo-reviews-admin")
+      .on("postgres_changes", { event: "*", schema: "public", table: "reviews" }, reload)
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [flash, user?.id]);
+  const reviews = supabase
+    ? remoteReviews
+        .map((review) => ({
+          id: review.id,
+          rating: review.rating,
+          text: review.body,
+          adminReply: review.admin_reply,
+          date: new Date(review.created_at).toLocaleDateString(),
+          product: products.find((product) => product.id === review.product_id),
+        }))
+        .filter((review) => review.product)
+    : products.flatMap((product) =>
+        read(`revo-reviews-${product.id}`, []).map((review, reviewIndex) => ({
+          ...review,
+          product,
+          reviewIndex,
+        })),
+      );
   const totalStock = Object.values(stock).reduce(
     (a, b) => a + Number(b || 0),
     0,
   );
   const revenue = orders.reduce((sum, o) => sum + Number(o.total || 0), 0);
   const newOrders = orders.filter((o) => o.status === "new").length;
-  const saveStock = (id) => {
+  const saveStock = async (id) => {
     const clean = { ...stock, [id]: Math.max(0, Number(stock[id]) || 0) };
+    if (supabase) {
+      const { error } = await supabase
+        .from("products")
+        .update({ stock: clean[id], updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) {
+        flash(error.message);
+        return;
+      }
+    }
     setStock(clean);
     localStorage.setItem("revo-stock", JSON.stringify(clean));
     flash(ui.stockSaved);
@@ -1638,6 +2098,24 @@ function AdminDashboard() {
         en: String(data.get("descriptionEn") || "").trim(),
       },
     };
+    if (supabase) {
+      const { error } = await supabase.from("products").insert({
+        id: product.id,
+        title_ru: product.title.ru,
+        title_en: product.title.en,
+        description_ru: product.note.ru,
+        description_en: product.note.en,
+        category: product.roast,
+        price: product.price,
+        stock: product.stock,
+        image_url: product.image,
+        gallery: product.gallery,
+      });
+      if (error) {
+        flash(error.message);
+        return;
+      }
+    }
     addProduct(product);
     const nextStock = { ...stock, [product.id]: product.stock };
     setStock(nextStock);
@@ -1645,14 +2123,41 @@ function AdminDashboard() {
     form.reset();
     flash(ui.productCreated);
   };
-  const updateOrder = (id, status) => {
+  const updateOrder = async (id, status) => {
+    const order = orders.find((item) => item.id === id);
+    if (supabase && order?.databaseId) {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", order.databaseId);
+      if (error) {
+        flash(error.message);
+        return;
+      }
+    }
     setOrders(orders.map((o) => (o.id === id ? { ...o, status } : o)));
     flash(ui.saved);
   };
-  const sendReply = (id) => {
+  const sendReply = async (id) => {
     const text = (drafts[id] || "").trim();
     if (!text) return;
     const createdAt = new Date().toISOString();
+    if (supabase) {
+      const { error } = await supabase.from("support_messages").insert({
+        thread_id: id,
+        sender_id: user.id,
+        sender_role: "admin",
+        body: text,
+      });
+      if (error) {
+        flash(error.message);
+        return;
+      }
+      await supabase
+        .from("support_threads")
+        .update({ status: "answered", updated_at: createdAt })
+        .eq("id", id);
+    }
     const next = messages.map((m) =>
       m.id === id
         ? {
@@ -1668,13 +2173,22 @@ function AdminDashboard() {
         : m,
     );
     setMessages(next);
-    addCustomerUnread(messages.find((message) => message.id === id)?.email);
-    localStorage.setItem("revo-support", JSON.stringify(next));
+    if (!supabase) {
+      addCustomerUnread(messages.find((message) => message.id === id)?.email);
+      localStorage.setItem("revo-support", JSON.stringify(next));
+    }
     setDrafts((current) => ({ ...current, [id]: "" }));
     flash(ui.replySaved);
   };
-  const removeProduct = (id) => {
+  const removeProduct = async (id) => {
     if (!window.confirm(ui.confirmDeleteProduct)) return;
+    if (supabase) {
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) {
+        flash(error.message);
+        return;
+      }
+    }
     deleteProduct(id);
     const nextStock = { ...stock };
     delete nextStock[id];
@@ -1683,16 +2197,31 @@ function AdminDashboard() {
     localStorage.removeItem(`revo-reviews-${id}`);
     flash(ui.productDeleted);
   };
-  const removeOrder = (id) => {
+  const removeOrder = async (id) => {
     if (!window.confirm(ui.confirmDeleteOrder)) return;
+    const order = orders.find((item) => item.id === id);
+    if (supabase && order?.databaseId) {
+      const { error } = await supabase.from("orders").delete().eq("id", order.databaseId);
+      if (error) {
+        flash(error.message);
+        return;
+      }
+    }
     setOrders(orders.filter((order) => order.id !== id));
     flash(ui.orderDeleted);
   };
-  const removeChat = (id) => {
+  const removeChat = async (id) => {
     if (!window.confirm(ui.confirmDeleteChat)) return;
+    if (supabase) {
+      const { error } = await supabase.from("support_threads").delete().eq("id", id);
+      if (error) {
+        flash(error.message);
+        return;
+      }
+    }
     const next = messages.filter((message) => message.id !== id);
     setMessages(next);
-    localStorage.setItem("revo-support", JSON.stringify(next));
+    if (!supabase) localStorage.setItem("revo-support", JSON.stringify(next));
     setDrafts((current) => {
       const remaining = { ...current };
       delete remaining[id];
@@ -1700,12 +2229,51 @@ function AdminDashboard() {
     });
     flash(ui.chatDeleted);
   };
-  const deleteReview = (productId, reviewIndex) => {
+  const deleteReview = async (productId, reviewIndex, databaseId) => {
+    if (supabase && databaseId) {
+      const { error } = await supabase.from("reviews").delete().eq("id", databaseId);
+      if (error) {
+        flash(error.message);
+        return;
+      }
+      setRemoteReviews((current) => current.filter((review) => review.id !== databaseId));
+      flash(ui.reviewDeleted);
+      return;
+    }
     const key = `revo-reviews-${productId}`;
     const next = read(key, []).filter((_, index) => index !== reviewIndex);
     localStorage.setItem(key, JSON.stringify(next));
     setReviewVersion((version) => version + 1);
     flash(ui.reviewDeleted);
+  };
+  const replyToReview = async (review) => {
+    const key = review.id || `${review.product.id}-${review.reviewIndex}`;
+    const text = String(reviewDrafts[key] || "").trim();
+    if (!text) return;
+    if (supabase && review.id) {
+      const { error } = await supabase
+        .from("reviews")
+        .update({ admin_reply: text })
+        .eq("id", review.id);
+      if (error) {
+        flash(error.message);
+        return;
+      }
+      setRemoteReviews((current) =>
+        current.map((item) =>
+          item.id === review.id ? { ...item, admin_reply: text } : item,
+        ),
+      );
+    } else {
+      const storageKey = `revo-reviews-${review.product.id}`;
+      const next = read(storageKey, []).map((item, index) =>
+        index === review.reviewIndex ? { ...item, adminReply: text } : item,
+      );
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      setReviewVersion((version) => version + 1);
+    }
+    setReviewDrafts((current) => ({ ...current, [key]: "" }));
+    flash(ui.replySaved);
   };
   void reviewVersion;
   const tabs = [
@@ -2004,13 +2572,31 @@ function AdminDashboard() {
                     </div>
                     <p>{review.text}</p>
                     <small>{review.date}</small>
+                    {review.adminReply && (
+                      <div className="saved-reply"><b>REVO</b><p>{review.adminReply}</p></div>
+                    )}
+                    <div className="reply-box review-reply-box">
+                      <textarea
+                        value={reviewDrafts[review.id || `${review.product.id}-${review.reviewIndex}`] || ""}
+                        onChange={(event) =>
+                          setReviewDrafts({
+                            ...reviewDrafts,
+                            [review.id || `${review.product.id}-${review.reviewIndex}`]: event.target.value,
+                          })
+                        }
+                        placeholder={ui.replyPlaceholder}
+                      />
+                      <button type="button" className="button small" onClick={() => replyToReview(review)}>
+                        {ui.sendReply}
+                      </button>
+                    </div>
                   </div>
                   <button
                     type="button"
                     className="delete-review"
                     aria-label={ui.deleteReview}
                     onClick={() =>
-                      deleteReview(review.product.id, review.reviewIndex)
+                      deleteReview(review.product.id, review.reviewIndex, review.id)
                     }
                   >
                     <Trash2 />
@@ -2047,7 +2633,10 @@ function App() {
     </Routes>
   );
 }
-ReactDOM.createRoot(document.getElementById("root")).render(
+const rootElement = document.getElementById("root");
+const reactRoot = rootElement.__revoRoot || ReactDOM.createRoot(rootElement);
+rootElement.__revoRoot = reactRoot;
+reactRoot.render(
   <React.StrictMode>
     <HashRouter>
       <Provider>
